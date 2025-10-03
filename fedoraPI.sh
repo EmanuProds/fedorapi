@@ -67,7 +67,7 @@ apps_and_dependencies () {
 finalization () {
 	sudo cd ..
 	sudo rm -rf post-installation_fedora
-	echo Finalizado - Pressione "enter" para sair e reinicie seu computador :D; read_; sudo reboot now 
+	echo Finalizado - Pressione "enter" para sair e reinicie seu computador :D; read_
 }
 #------------------------------------------------------------------------ #
 # Commands (uncomment the ones you want to use)
