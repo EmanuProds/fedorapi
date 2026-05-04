@@ -1,9 +1,0 @@
-[Desktop Entry]
-Encoding=UTF-8
-Name=Java
-Comment=Java Control Panel
-Exec=sh '/usr/lib/jre-oracle/bin/jcontrol'
-Icon=/usr/lib/jre-oracle/lib/desktop/icons/hicolor/48x48/apps/sun-jcontrol.png
-Terminal=false
-Type=Application
-Categories=Application;Settings;Java;X-Red-Hat-Base;X-Ximian-Settings;

@@ -1,0 +1,26 @@
+[Desktop Entry]
+Name=LunarVim
+GenericName=Text Editor
+Comment=An IDE layer for Neovim with sane defaults. Completely free and community driven.
+TryExec=lvim
+Exec=alacritty -e lvim
+Terminal=false
+Type=Application
+Keywords=Text;editor;
+Icon=lvim
+Categories=Utility;TextEditor;
+StartupNotify=false
+MimeType=text/english;text/plain;text/x-makefile;text/x-c++hdr;text/x-c++src;text/x-chdr;text/x-csrc;text/x-java;text/x-moc;text/x-pascal;text/x-tcl;text/x-tex;application/x-shellscript;text/x-c;text/x-c++;
+Name[en]=LunarVim
+Name[en_US]=LunarVim
+Name[en_US.UTF-8]=LunarVim
+Comment[en]=An IDE layer for Neovim with sane defaults. Completely free and community driven.
+Comment[en_US]=An IDE layer for Neovim with sane defaults. Completely free and community driven.
+Comment[en_US.UTF-8]=An IDE layer for Neovim with sane defaults. Completely free and community driven.
+Keywords[en]=Text;editor;
+Keywords[en_US]=Text;editor;
+Keywords[en_US.UTF-8]=Text;editor;
+PrefersNonDefaultGPU=false
+Hidden=false
+NoDisplay=false
+

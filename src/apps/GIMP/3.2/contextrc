@@ -1,0 +1,16 @@
+# GIMP user context
+
+(tool "gimp-text-tool")
+(paint-info "gimp-paintbrush")
+(background
+    (color "HSVA float" 16 "\26\266\5\77\244\257n\77p\3\326\76\0\0\200\77" 0))
+(brush "1. Pixel")
+(dynamics "Pressure Size")
+(mybrush "100% Opaque")
+(pattern "Starfield")
+(gradient "Skyline")
+(palette "Standard")
+(font "Sans-serif")
+(tool-preset "Core Pointer")
+
+# end of user context

@@ -1,0 +1,9 @@
+# GIMP gimp-bucket-fill-tool options
+
+(background
+    (color "HSVA float" 16 "\26\266\5\77\244\257n\77p\3\326\76\0\0\200\77" 0))
+(pattern "Starfield")
+(brush-size 51)
+(brush-hardness 0.5)
+
+# end of gimp-bucket-fill-tool options

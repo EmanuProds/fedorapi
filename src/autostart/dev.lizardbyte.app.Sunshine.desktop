@@ -1,0 +1,32 @@
+[Desktop Entry]
+Actions=RunInTerminal;
+Categories=RemoteAccess;Network;
+Comment=Self-hosted game stream host for Moonlight
+Exec=/usr/bin/env systemctl start --u sunshine
+Icon=sunshine
+Keywords=gamestream;stream;moonlight;remote play;
+Name=Sunshine
+Type=Application
+Version=1.0
+Name[en]=Sunshine
+Name[en_US]=Sunshine
+Name[en_US.UTF-8]=Sunshine
+Comment[en]=Self-hosted game stream host for Moonlight
+Comment[en_US]=Self-hosted game stream host for Moonlight
+Comment[en_US.UTF-8]=Self-hosted game stream host for Moonlight
+Keywords[en]=gamestream;stream;moonlight;remote play;
+Keywords[en_US]=gamestream;stream;moonlight;remote play;
+Keywords[en_US.UTF-8]=gamestream;stream;moonlight;remote play;
+PrefersNonDefaultGPU=false
+NoDisplay=false
+StartupNotify=false
+Terminal=false
+Hidden=true
+
+[Desktop Action RunInTerminal]
+Exec=gio launch /usr/share/applications/dev.lizardbyte.app.Sunshine.terminal.desktop
+Icon=application-x-executable
+Name=Run in Terminal
+Name[en]=Run in Terminal
+Name[en_US]=Run in Terminal
+Name[en_US.UTF-8]=Run in Terminal

@@ -1,0 +1,4 @@
+[MIME Cache]
+x-scheme-handler/heroic=com.heroicgameslauncher.hgl.desktop;
+x-scheme-handler/steam=com.valvesoftware.Steam.desktop;
+x-scheme-handler/steamlink=com.valvesoftware.Steam.desktop;

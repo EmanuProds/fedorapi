@@ -1,0 +1,13 @@
+# GIMP gimp-airbrush-tool options
+
+(foreground
+    (color "R'G'B'A double" 32 "\0\0\0\140\44\34\274\77\0\0\0\140\44\34\274\77\0\0\0\140\46\37\277\77\0\0\0\0\0\0\360\77" 0))
+(brush "1. Pixel")
+(dynamics "Pressure Size")
+(pattern "Starfield")
+(gradient "Skyline")
+(palette "Standard")
+(brush-size 21)
+(brush-spacing 0.20000000000000001)
+
+# end of gimp-airbrush-tool options

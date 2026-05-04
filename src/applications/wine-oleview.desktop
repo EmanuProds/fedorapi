@@ -1,0 +1,22 @@
+[Desktop Entry]
+Name=Wine OLE View
+Comment=Windows OLE View
+Name[ar]=عارض العناصر
+Comment[ar]=لعرض العناصر البيئية في واين
+Exec=wine oleview.exe
+Icon=wine
+Terminal=false
+Type=Application
+StartupNotify=true
+StartupWMClass=oleview.exe
+Categories=X-Wine;
+X-Desktop-File-Install-Version=0.28
+Name[en]=Wine OLE View
+Name[en_US]=Wine OLE View
+Name[en_US.UTF-8]=Wine OLE View
+Comment[en]=Windows OLE View
+Comment[en_US]=Windows OLE View
+Comment[en_US.UTF-8]=Windows OLE View
+PrefersNonDefaultGPU=false
+NoDisplay=true
+
