@@ -139,7 +139,7 @@ APPS="anydesk remmina gparted gimp inkscape handbrake-gui zen-browser gpu-screen
 VSCODE_REPO="[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc"
 VSCODE="code"
 DOCKER_REPO="'https://download.docker.com/linux/fedora/docker-ce.repo'"
-CONTAINERS="podman podman-compose podman-docker docker docker-ce docker-ce-cli containerd.io docker-compose-plugin"
+CONTAINERS="podman podman-compose docker containerd.io docker-compose docker-compose"
 FLATPAK_PODMANDESKTOP="io.podman_desktop.PodmanDesktop"
 STARSHIP_REPO="chronoscrat/starship"
 DEV_APPS="gh starship"
@@ -330,9 +330,11 @@ development() {
     sleep 1
 
     dialog --title "Aguarde" --infobox "\nInstalando containers e suas dependências..." 7 50
-    sudo dnf config-manager addrepo --from-repofile=$DOCKER_REPO &> /dev/null
     sudo dnf install -y $CONTAINERS &> /dev/null
     flatpak install flathub -y $FLATPAK_PODMANDESKTOP &> /dev/null
+    sudo systemctl start docker &> /dev/null
+    sudo systemctl enable docker &> /dev/null
+    sudo usermod -aG docker $USER &> /dev/null
     sleep 1
 
     dialog --title "Aguarde" --infobox "\nHabilitando o docker..." 7 50
