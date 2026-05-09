@@ -1,47 +1,17 @@
 #!/bin/bash
 #
-# Facilitate post installation Fedora Linux in minutes personalizated.
+# Facilitate post installation Fedora Linux Workstation in minutes personalizated.
 #
 # Website:       https://fedoraproject.org/
 # Author:        Emanuel Pereira
 #
 # ------------------------------------------------------------------------ #
 
+## directorys ##
 # sudo config file
 SUDOERS_FILE="/etc/sudoers"
 
-# config directory
-CONFIG_DIR="$HOME/.config"
-
-# local directory
-LOCAL_DIR="$HOME/.local/share"
-
-# extensions directory
-EXTENSIONS_DIR="$HOME/.local/share/gnome-shell/extensions"
-
-# plymouth spinner directory
-SPINNER_DIR="/usr/share/plymouth/themes/spinner"
-SPINNER_CONFIG="$SPINNER_DIR/spinner.plymouth"
-
-# custom icons folder
-ICONS_DIR="$HOME/.local/share/icons/"
-
-custom_icons_folder () {
-    if [[ ! -d "$ICONS_DIR" ]]; then
-        mkdir -p "$ICONS_DIR"
-    fi
-}
-
-# theme folder
-THEME_DIR="$HOME/.themes"
-
-theme_folder () {
-    if [[ ! -d "$THEME_DIR" ]]; then
-        mkdir -p "$THEME_DIR"
-    fi
-}
-
-# temporary folder
+# temporary directory
 TEMP_DIR="$HOME/.tmp"
 
 temp_folder () {
@@ -60,7 +30,38 @@ FPI_EXTENSIONS_DIR="$FPI_SRC_DIR/extensions"
 FPI_GDM_DIR="$FPI_SRC_DIR/gdm"
 FPI_ICONS_DIR="$FPI_SRC_DIR/icons"
 
-# gnome extensions
+# config directory
+CONFIG_DIR="$HOME/.config"
+
+# local directory
+LOCAL_DIR="$HOME/.local/share"
+
+# extensions directory
+EXTENSIONS_DIR="$HOME/.local/share/gnome-shell/extensions"
+
+# plymouth spinner directory
+SPINNER_DIR="/usr/share/plymouth/themes/spinner"
+SPINNER_CONFIG="$SPINNER_DIR/spinner.plymouth"
+
+# custom icons directory
+ICONS_DIR="$HOME/.local/share/icons/"
+
+custom_icons_folder () {
+    if [[ ! -d "$ICONS_DIR" ]]; then
+        mkdir -p "$ICONS_DIR"
+    fi
+}
+
+# theme directory
+THEME_DIR="$HOME/.themes"
+
+theme_folder () {
+    if [[ ! -d "$THEME_DIR" ]]; then
+        mkdir -p "$THEME_DIR"
+    fi
+}
+
+## gnome extensions ##
 ADW_GTK3_COLORIZER="8084"
 SYSTEM_MONITOR="6807"
 CAFFEINE="517"
@@ -74,9 +75,10 @@ TILING_SHELL="7065"
 GSCONNECT="1319"
 BLUETOOTH_BATTERY_METER="6670"
 AUTO_POWER_PROFILE="6583"
-EXTENSIONS=($ADW_GTK3_COLORIZER $SYSTEM_MONITOR $CAFFEINE $MONITOR_VOLUME_DDCUTIL $TOUCHPAD_TOGGLE $HOT_EDGE $TASKS_PANEL $SHOTZY $JUST_PERFECTION $TILING_SHELL $GSCONNECT $BLUETOOTH_BATTERY_METER $AUTO_POWER_PROFILE)
+EXTENSIONS=($ADW_GTK3_COLORIZER $SYSTEM_MONITOR $CAFFEINE $MONITOR_VOLUME_DDCUTIL $TOUCHPAD_TOGGLE $HOT_EDGE $TASKS_PANEL $SHOTZY \
+    $JUST_PERFECTION $TILING_SHELL $GSCONNECT $BLUETOOTH_BATTERY_METER $AUTO_POWER_PROFILE)
 
-# terminal colors
+## terminal font colors ##
 AZUL="\033[0;34m"
 VERDE="\033[0;32m"
 AMARELO="\033[1;33m"
@@ -84,7 +86,7 @@ VERMELHO="\033[0;31m"
 RESET="\033[0m"
 BOLD="\033[1m"
 
-# dialog theme
+## dialog theme ##
 cat << EOF > /tmp/theme
 screen_color = (WHITE,BLACK,OFF)
 dialog_color = (BLACK,WHITE,OFF)
@@ -108,55 +110,71 @@ EOF
 
 export DIALOGRC=/tmp/theme
 
-# packages
-BLOTWARE="gnome-connections gnome-contacts gnome-maps"
-
+## packages variables ##
+# repositorys
 RPMFUSION_FREE="https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
 RPMFUSION_NONFREE="https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
-RPMFUSION_APPSTREAM="rpmfusion-free-appstream-data rpmfusion-nonfree-appstream-data"
 TOPGRADE_REPO="lilay/topgrade"
 RESOURCES_REPO="atim/resources"
-FLATPAK_PACKAGE_SYSTEM="io.github.flattool.Warehouse com.github.tchx84.Flatseal it.mijorus.gearlever com.mattjakeman.ExtensionManager com.github.tchx84.Flatseal page.codeberg.libre_menu_editor.LibreMenuEditor net.nokyan.Resources io.github.realmazharhussain.GdmSettings"
-SYSTEM_PACKAGES="resources topgrade gnome-epub-thumbnailer samba-client gutenprint gutenprint-cups cups tesseract zbarimg openssl gnome-tweaks ddcutil fastfetch btrfs-assistant btrbk snapper"
-ARCHIVE="file-roller p7zip p7zip-plugins unrar"
-APPIMAGE_SUPPORT="fuse fuse-libs"
-
-GRAPHICS_CARD_DRIVERS="mesa-vulkan-drivers vulkan-loader mesa-libGLU libva-utils"
-VA_SWAP="mesa-va-drivers mesa-va-drivers-freeworld"
-VDPAU_SWAP="mesa-vdpau-drivers mesa-vdpau-drivers-freeworld"
-FFMPEG="ffmpeg-free ffmpeg"
-FLATPAK_FFMPEG="org.freedesktop.Platform.ffmpeg-full/x86_64/24.08 org.freedesktop.Platform.ffmpeg-full/x86_64/23.08 org.freedesktop.Platform.ffmpeg-full/x86_64/22.08"
-HA="ffmpeg-libs libva libva-utils"
-
 ZEN_BROWSER_REPO="sneexy/zen-browser"
 GPU_RECORDER_REPO="brycensranch/gpu-screen-recorder-git"
 TENACITY_REPO="nielsenb/tenacity"
 ANYDESK_REPO="https://keys.anydesk.com/repos/RPM-GPG-KEY"
-ANYDESK_ADD="[anydesk]\nname=AnyDesk Fedora - stable\nbaseurl=http://rpm.anydesk.com/fedora/$"basearch"/\ngpgcheck=1\nrepo_gpgcheck=1\ngpgkey=https://keys.anydesk.com/repos/RPM-GPG-KEY"
-FLATPAK_APPS="io.github.diegoivan.pdf_metadata_editor com.obsproject.Studio io.github.flattool.Ignition org.pitivi.Pitivi io.gitlab.adhami3310.Impression io.anytype.anytype org.nickvision.tubeconverter com.microsoft.Edge io.github.giantpinkrobots.varia"
-APPS="anydesk remmina gparted gimp inkscape handbrake-gui zen-browser gpu-screen-recorder-ui"
-
-VSCODE_REPO="[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc"
-VSCODE="code"
+VSCODE_REPO="[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=
+https://packages.microsoft.com/keys/microsoft.asc"
 DOCKER_REPO="'https://download.docker.com/linux/fedora/docker-ce.repo'"
+STARSHIP_REPO="chronoscrat/starship"
+JETBRAINS_FONTS_REPO="maveonair/jetbrains-mono-nerd-fonts"
+GAMING_REPO="atim/heroic-games-launcher"
+
+# system
+BLOTWARE="gnome-connections gnome-contacts gnome-maps"
+RPMFUSION_APPSTREAM="rpmfusion-free-appstream-data rpmfusion-nonfree-appstream-data"
+FLATPAK_PACKAGE_SYSTEM="io.github.flattool.Warehouse com.github.tchx84.Flatseal it.mijorus.gearlever com.mattjakeman.ExtensionManager
+com.github.tchx84.Flatseal page.codeberg.libre_menu_editor.LibreMenuEditor net.nokyan.Resources io.github.realmazharhussain.GdmSettings"
+SYSTEM_PACKAGES="resources topgrade gnome-epub-thumbnailer samba-client gutenprint gutenprint-cups cups tesseract zbarimg openssl gnome-tweaks
+ddcutil fastfetch btrfs-assistant btrbk snapper"
+ARCHIVE="file-roller p7zip p7zip-plugins unrar"
+APPIMAGE_SUPPORT="fuse fuse-libs"
+
+# drivers
+GRAPHICS_CARD_DRIVERS="mesa-vulkan-drivers vulkan-loader mesa-libGLU libva-utils"
+VA_SWAP="mesa-va-drivers mesa-va-drivers-freeworld"
+VDPAU_SWAP="mesa-vdpau-drivers mesa-vdpau-drivers-freeworld"
+FFMPEG="ffmpeg-free ffmpeg"
+FLATPAK_FFMPEG="org.freedesktop.Platform.ffmpeg-full/x86_64/24.08 org.freedesktop.Platform.ffmpeg-full/x86_64/23.08
+org.freedesktop.Platform.ffmpeg-full/x86_64/22.08"
+HA="ffmpeg-libs libva libva-utils"
+
+# apps
+ANYDESK_ADD="[anydesk]\nname=AnyDesk Fedora - stable\nbaseurl=http://rpm.anydesk.com/fedora/$"basearch"/\ngpgcheck=1\nrepo_gpgcheck=1\
+ngpgkey=https://keys.anydesk.com/repos/RPM-GPG-KEY"
+FLATPAK_APPS="io.github.diegoivan.pdf_metadata_editor com.obsproject.Studio io.github.flattool.Ignition org.pitivi.Pitivi
+io.gitlab.adhami3310.Impression io.anytype.anytype org.nickvision.tubeconverter com.microsoft.Edge io.github.giantpinkrobots.varia"
+APPS="anydesk remmina gparted gimp inkscape handbrake-gui zen-browser gpu-screen-recorder-gtk"
+
+# development
+VSCODE="code"
 CONTAINERS="podman podman-compose docker containerd.io docker-compose docker-compose"
 FLATPAK_PODMANDESKTOP="io.podman_desktop.PodmanDesktop"
-STARSHIP_REPO="chronoscrat/starship"
 DEV_APPS="gh starship"
 FLATPAK_DEV_APPS="io.github.shonebinu.Brief me.iepure.devtoolbox rest.insomnia.Insomnia"
-JETBRAINS_FONTS_REPO="maveonair/jetbrains-mono-nerd-fonts"
 JETBRAINS_FONTS="jetbrains-mono-nerd-fonts jetbrains-mononl-nerd-fonts"
 MICROSOFT_FONTS="cabextract fontconfig"
 MICROSOFT_CORE_FONTS="https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-*.noarch.rpm"
 
+# virtualization
 WINBOAT="freerdp winboat-*-x86_64.rpm"
 
-GAMING_REPO="atim/heroic-games-launcher"
+# games
 GAMING="steam gamemode gamescope mangohud heroic-games-launcher-bin qt6-qtwebengine"
-FLATPAK_GAMING="io.github.radiolamp.mangojuice com.steamgriddb.SGDBoop com.vysp3r.ProtonPlus com.github.Matoking.protontricks org.prismlauncher.PrismLauncher net.retrodeck.retrodeck io.github.hedge_dev.hedgemodmanager"
+FLATPAK_GAMING="io.github.radiolamp.mangojuice com.steamgriddb.SGDBoop com.vysp3r.ProtonPlus com.github.Matoking.protontricks
+org.prismlauncher.PrismLauncher net.retrodeck.retrodeck io.github.hedge_dev.hedgemodmanager"
 
+# wine
 WINE="wine-desktop wine-filesystem winetricks wine-mono"
 
+# personalization
 FLATPAK_THEME="org.gtk.Gtk3theme.adw-gtk3 org.gtk.Gtk3theme.adw-gtk3-dark"
 
 ## dependencies to inicialize ##
@@ -475,7 +493,8 @@ cleanup() {
     sleep 1
 }
 
-# welcome
+## script ui ##
+# welcome screen
 tput civis
 TITULO="
 ███████╗███████╗██████╗░░█████╗░██████╗░░█████╗░  ██████╗░██╗
@@ -490,7 +509,7 @@ By: EmanuProds
 dialog --infobox "$TITULO" 11 65
 sleep 5
 
-# loop menu
+# loop menu #
 while true; do
     OPTIONS=$(dialog --stdout \
         --backtitle "Fedora Linux Workstation - Script de Pós-Instalação" \
