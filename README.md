@@ -1,4 +1,4 @@
-# Fedora PI 💻
+# Fedora PI 🐧
 
 [![Fedora](https://img.shields.io/badge/Fedora-43+-blue.svg)](https://getfedora.org/)
 [![Bash](https://img.shields.io/badge/Bash-4.0+-blue.svg)](https://www.gnu.org/software/bash/)
