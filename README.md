@@ -1,60 +1,50 @@
 # Fedora PI 💻
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Bash](https://img.shields.io/badge/Bash-4.0+-blue.svg)](https://www.gnu.org/software/bash/)
 [![Fedora](https://img.shields.io/badge/Fedora-43+-blue.svg)](https://getfedora.org/)
-[![Version](https://img.shields.io/badge/Version-3.0.1-green.svg)]()
+[![Bash](https://img.shields.io/badge/Bash-4.0+-blue.svg)](https://www.gnu.org/software/bash/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **Configuração moderna e interativa de pós-instalação para Fedora Linux** - Transforme sua nova instalação Fedora em uma estação de trabalho de desenvolvimento completa com apenas alguns minutos!
+> **Modern and interactive post-installation configuration for Fedora Linux** - Transform your new Fedora installation into a complete development workstation in just a few minutes!
 
-## Funcionalidades
+## Features
 
-- **Sistema de Menu Interativo** - Interface amigável com opções claras
-- **Gerenciamento Moderno de Pacotes** - Integração DNF + Flatpak
-- **Fontes Nerds de Desenvolvimento** - JetBrains Mono e mais
-- **Ferramentas de Desenvolvimento** - VSCode, Git, Node.js, Python e utilitários essenciais
-- **Aplicativos Multimídia** - Música, vídeo e apps de produtividade
+- **Interactive Menu System** - User-friendly interface with clear options
+- **Nerds fonts for Development** - JetBrains Mono and more
+- **Development Tools** - VSCode, Git, Node.js, Python and essential utilities
+- **Multimedia Apps** - Music, video and productivity apps
 - **GNOME Extensions** - Caffeine, GSConnect, and more
-- **Limpeza do Sistema** - Remoção de bloatware e otimização de performance
+- **System Cleanner** - Bloatware remove and performance optimization
 
-## Início Rápido
+## Quick Start
 
-### Pré-requisitos
-- Instalação fresca do Fedora (43+)
-- Conexão com internet
-- Privilégios sudo
-- Bash 4.0+
+### Prerequisites
+- `bash` 4.0+
+- `sudo` privileges
+- `curl` for repository validation
+- `git` to clone
+- `gh` (installed automatically if missing)
+- `dialog` (installed automatically if missing)
 
 ### Installation & Usage
 
-1. **Baixe o script:**
+1. **Download script:**
    ```bash
    git clone https://github.com/EmanuProds/fedora_pi.git
    cd fedora_pi
    ```
 
-2. **Torne-o executável:**
+2. **Make it executable:**
    ```bash
    chmod +x fedoraPI.sh
    ```
 
-3. **Execute o script:**
+3. **Execute:**
    ```bash
    ./fedoraPI.sh
    ```
 
-4. **Siga o menu interativo** para escolher o que instalar!
+4. **Follow the interactive menu** to choose what to install!
 
-### Dependências de Software
-- `bash` 4.0+
-- `sudo` privilégios
-- `dnf` gerenciador de pacotes
-- `flatpak` gerenciador de apps universal
-- `curl` para validação de repositórios
-- `git` para clonar
-- `gh` (instalado automáticamente se estiver faltando)
-- `dialog` (instalado automáticamente se estiver faltando)
+## License
 
-## Licença
-
-Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
+This project is licensed under the MIT License.
