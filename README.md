@@ -1,8 +1,8 @@
-# Fedora PI 🐧
+# 🐧 fedoraPI - Fedora Linux Workstation Post-Installation Script
 
-[![Fedora](https://img.shields.io/badge/Fedora-43+-blue.svg)](https://getfedora.org/)
-[![Bash](https://img.shields.io/badge/Bash-4.0+-blue.svg)](https://www.gnu.org/software/bash/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Fedora](https://img.shields.io/badge/Fedora-3C6EB4?style=for-the-badge&logo=fedora&logoColor=white)](https://fedoraproject.org/)
+[![Bash](https://img.shields.io/badge/Bash-4EAA25?style=for-the-badge&logo=gnu-bash&logoColor=white)](https://www.gnu.org/software/bash/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 > **Modern and interactive post-installation configuration for Fedora Linux** - Transform your new Fedora installation into a complete development workstation in just a few minutes!
 
@@ -29,8 +29,8 @@
 
 1. **Download script:**
    ```bash
-   git clone https://github.com/EmanuProds/fedora_pi.git
-   cd fedora_pi
+   git clone https://github.com/EmanuProds/fedorapi.git
+   cd fedorapi
    ```
 
 2. **Make it executable:**
