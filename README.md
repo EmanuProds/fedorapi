@@ -1,4 +1,4 @@
-# 🐧 fedoraPI - Fedora Linux Workstation Post-Installation Script
+# 🐧 Fedora Linux Post-Installation Script
 
 [![Fedora](https://img.shields.io/badge/Fedora-3C6EB4?style=for-the-badge&logo=fedora&logoColor=white)](https://fedoraproject.org/)
 [![Bash](https://img.shields.io/badge/Bash-4EAA25?style=for-the-badge&logo=gnu-bash&logoColor=white)](https://www.gnu.org/software/bash/)
