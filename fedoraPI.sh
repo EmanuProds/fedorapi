@@ -7,6 +7,11 @@
 #
 # ------------------------------------------------------------------------ #
 
+## directorys ##
+# src directory
+FPI_SRC_DIR="./src"
+FPI_SRC_GDM="$FPI_SRC_DIR/gdm"
+
 # sudo config file
 SUDOERS_FILE="/etc/sudoers"
 
@@ -16,49 +21,26 @@ CONFIG_DIR="$HOME/.config"
 # local directory
 LOCAL_DIR="$HOME/.local/share"
 
+# fish directory
+FISH_DIR="$HOME/.config/fish"
+if [ ! -d "$FISH_DIR" ]; then
+    mkdir -p "$FISH_DIR"
+fi
+
+FISH_CONFD="$HOME/.config/fish/conf.d"
+if [ ! -d "$FISH_CONFD" ]; then
+    mkdir -p "$FISH_CONFD"
+fi
+
 # extensions directory
 EXTENSIONS_DIR="$HOME/.local/share/gnome-shell/extensions"
+if [ ! -d "$EXTENSIONS_DIR" ]; then
+    mkdir -p "$EXTENSIONS_DIR"
+fi
 
 # plymouth spinner directory
 SPINNER_DIR="/usr/share/plymouth/themes/spinner"
 SPINNER_CONFIG="$SPINNER_DIR/spinner.plymouth"
-
-# custom icons folder
-ICONS_DIR="$HOME/.local/share/icons/"
-
-custom_icons_folder () {
-    if [[ ! -d "$ICONS_DIR" ]]; then
-        mkdir -p "$ICONS_DIR"
-    fi
-}
-
-# theme folder
-THEME_DIR="$HOME/.themes"
-
-theme_folder () {
-    if [[ ! -d "$THEME_DIR" ]]; then
-        mkdir -p "$THEME_DIR"
-    fi
-}
-
-# temporary folder
-TEMP_DIR="$HOME/.tmp"
-
-temp_folder () {
-    if [[ ! -d "$TEMP_DIR" ]]; then
-        mkdir -p "$TEMP_DIR"
-    fi
-
-    cd "$TEMP_DIR"
-}
-
-# src directory
-FPI_SRC_DIR="./src"
-FPI_APPS_DIR="$FPI_SRC_DIR/apps"
-FPI_BASH_DIR="$FPI_SRC_DIR/bash"
-FPI_EXTENSIONS_DIR="$FPI_SRC_DIR/extensions"
-FPI_GDM_DIR="$FPI_SRC_DIR/gdm"
-FPI_ICONS_DIR="$FPI_SRC_DIR/icons"
 
 # gnome extensions
 ADW_GTK3_COLORIZER="8084"
@@ -76,13 +58,11 @@ BLUETOOTH_BATTERY_METER="6670"
 AUTO_POWER_PROFILE="6583"
 EXTENSIONS=($ADW_GTK3_COLORIZER $SYSTEM_MONITOR $CAFFEINE $MONITOR_VOLUME_DDCUTIL $TOUCHPAD_TOGGLE $HOT_EDGE $TASKS_PANEL $SHOTZY $JUST_PERFECTION $TILING_SHELL $GSCONNECT $BLUETOOTH_BATTERY_METER $AUTO_POWER_PROFILE)
 
-# terminal colors
-AZUL="\033[0;34m"
-VERDE="\033[0;32m"
-AMARELO="\033[1;33m"
-VERMELHO="\033[0;31m"
+## terminal font colors ##
+GREEN="\033[0;32m"
+YELLOW="\033[1;33m"
+RED="\033[0;31m"
 RESET="\033[0m"
-BOLD="\033[1m"
 
 # dialog theme
 cat << EOF > /tmp/theme
