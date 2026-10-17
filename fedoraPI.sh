@@ -1,526 +1,339 @@
-#!/bin/bash
-#
-# Facilitate post installation Fedora Linux in minutes personalizated.
-#
-# Website:       https://fedoraproject.org/
-# Author:        Emanuel Pereira
-#
-# ------------------------------------------------------------------------ #
+#!/usr/bin/env bash
 
-## directorys ##
-# src directory
-FPI_SRC_DIR="./src"
-FPI_SRC_GDM="$FPI_SRC_DIR/gdm"
+set -euo pipefail
+IFS=$'\n\t'
 
-# sudo config file
-SUDOERS_FILE="/etc/sudoers"
+# --- caminhos ------------------------------------------------------ #
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly LISTS="$SCRIPT_DIR/lists"
 
-# config directory
-CONFIG_DIR="$HOME/.config"
+# --- repos externos (fonte única; nada de dotfiles/scripts aqui) --- #
+readonly DOTFILES_REPO="https://github.com/EmanuProds/dotfiles.git"
+readonly ACCENT_SYNC_REPO="https://github.com/EmanuProds/accent-sync.git"
+readonly TITLEBAR_REPO="https://github.com/EmanuProds/opencode-desktop-titlebar.git"
+readonly CLONES="/tmp/fedorapi-clones"
 
-# local directory
-LOCAL_DIR="$HOME/.local/share"
+readonly LOG="/tmp/fedorapi.log"
+readonly FDC="$(rpm -E %fedora)"
 
-# fish directory
-FISH_DIR="$HOME/.config/fish"
-if [ ! -d "$FISH_DIR" ]; then
-    mkdir -p "$FISH_DIR"
-fi
+# --- cores (definições reais; bug histórico corrigido aqui) ------- #
+readonly C_RED=$'\e[1;31m' C_GRN=$'\e[1;32m' C_YEL=$'\e[1;33m' C_BLU=$'\e[1;34m' C_OFF=$'\e[0m'
+step() { printf '\n%s== %s ==%s\n'    "$C_BLU" "$*" "$C_OFF"; }
+ok()   { printf '%s[ OK ]%s %s\n'     "$C_GRN" "$C_OFF" "$*"; }
+warn() { printf '%s[WARN]%s %s\n'     "$C_YEL" "$C_OFF" "$*"; }
+die()  { printf '%s[FAIL]%s %s\n' "$C_RED" "$C_OFF" "$*" >&2; exit 1; }
+# executa um passo não-crítico: se falhar, a instalação continua
+try_warn() { "$@" || warn "não-crítico, seguiu em frente: $*"; }
 
-FISH_CONFD="$HOME/.config/fish/conf.d"
-if [ ! -d "$FISH_CONFD" ]; then
-    mkdir -p "$FISH_CONFD"
-fi
+exec > >(tee -a "$LOG") 2>&1
 
-# extensions directory
-EXTENSIONS_DIR="$HOME/.local/share/gnome-shell/extensions"
-if [ ! -d "$EXTENSIONS_DIR" ]; then
-    mkdir -p "$EXTENSIONS_DIR"
-fi
+# --- identidade ---------------------------------------------------- #
+[ "$(id -u)" -eq 0 ] || die "rode com sudo (o script altera pacotes de sistema)"
+SUDO_USER="${SUDO_USER:-}"
+[ -n "$SUDO_USER" ] || die "SUDO_USER indefinido"
+readonly SUH="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+readonly UID_R="$(id -u "$SUDO_USER")"
 
-# plymouth spinner directory
-SPINNER_DIR="/usr/share/plymouth/themes/spinner"
-SPINNER_CONFIG="$SPINNER_DIR/spinner.plymouth"
+read_list() { grep -vE '^\s*(#|$)' "$1" | sed -e 's/[[:space:]]*#.*$//' -e 's/[[:space:]]*$//' | grep -vE '^$'; }
 
-# gnome extensions
-ADW_GTK3_COLORIZER="8084"
-SYSTEM_MONITOR="6807"
-CAFFEINE="517"
-MONITOR_VOLUME_DDCUTIL="6325"
-TOUCHPAD_TOGGLE="7000"
-HOT_EDGE="4222"
-TASKS_PANEL="8642"
-SHOTZY="9707"
-JUST_PERFECTION="3843"
-TILING_SHELL="7065"
-GSCONNECT="1319"
-BLUETOOTH_BATTERY_METER="6670"
-AUTO_POWER_PROFILE="6583"
-EXTENSIONS=($ADW_GTK3_COLORIZER $SYSTEM_MONITOR $CAFFEINE $MONITOR_VOLUME_DDCUTIL $TOUCHPAD_TOGGLE $HOT_EDGE $TASKS_PANEL $SHOTZY $JUST_PERFECTION $TILING_SHELL $GSCONNECT $BLUETOOTH_BATTERY_METER $AUTO_POWER_PROFILE)
-
-## terminal font colors ##
-GREEN="\033[0;32m"
-YELLOW="\033[1;33m"
-RED="\033[0;31m"
-RESET="\033[0m"
-
-# dialog theme
-cat << EOF > /tmp/theme
-screen_color = (WHITE,BLACK,OFF)
-dialog_color = (BLACK,WHITE,OFF)
-menubox_border_color = (BLACK,WHITE,ON)
-title_color = (BLACK,WHITE,ON)
-
-item_selected_color = (WHITE,BLACK,OFF)
-tag_key_color = (BLUE,WHITE,OFF)
-tag_selected_color = (WHITE,BLACK,OFF)
-tag_key_selected_color = (WHITE,BLACK,OFF)
-
-button_active_color = (WHITE,BLACK,ON)
-button_inactive_color = (BLACK,WHITE,OFF)
-button_label_active_color = (WHITE,BLACK,ON)
-button_label_inactive_color = (BLACK,WHITE,OFF)
-
-position_indicator_color = (WHITE,BLACK,OFF)
-use_shadow = OFF
-shadow_color = (BLACK,BLACK,ON)
-EOF
-
-export DIALOGRC=/tmp/theme
-
-# packages
-BLOTWARE="gnome-connections gnome-contacts gnome-maps"
-
-RPMFUSION_FREE="https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
-RPMFUSION_NONFREE="https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
-RPMFUSION_APPSTREAM="rpmfusion-free-appstream-data rpmfusion-nonfree-appstream-data"
-TOPGRADE_REPO="lilay/topgrade"
-RESOURCES_REPO="atim/resources"
-FLATPAK_PACKAGE_SYSTEM="io.github.flattool.Warehouse com.github.tchx84.Flatseal it.mijorus.gearlever com.mattjakeman.ExtensionManager com.github.tchx84.Flatseal page.codeberg.libre_menu_editor.LibreMenuEditor net.nokyan.Resources io.github.realmazharhussain.GdmSettings"
-SYSTEM_PACKAGES="resources topgrade gnome-epub-thumbnailer samba-client gutenprint gutenprint-cups cups tesseract zbarimg openssl gnome-tweaks ddcutil fastfetch btrfs-assistant btrbk snapper"
-ARCHIVE="file-roller p7zip p7zip-plugins unrar"
-APPIMAGE_SUPPORT="fuse fuse-libs"
-
-GRAPHICS_CARD_DRIVERS="mesa-vulkan-drivers vulkan-loader mesa-libGLU libva-utils"
-VA_SWAP="mesa-va-drivers mesa-va-drivers-freeworld"
-VDPAU_SWAP="mesa-vdpau-drivers mesa-vdpau-drivers-freeworld"
-FFMPEG="ffmpeg-free ffmpeg"
-FLATPAK_FFMPEG="org.freedesktop.Platform.ffmpeg-full/x86_64/24.08 org.freedesktop.Platform.ffmpeg-full/x86_64/23.08 org.freedesktop.Platform.ffmpeg-full/x86_64/22.08"
-HA="ffmpeg-libs libva libva-utils"
-
-ZEN_BROWSER_REPO="sneexy/zen-browser"
-GPU_RECORDER_REPO="brycensranch/gpu-screen-recorder-git"
-TENACITY_REPO="nielsenb/tenacity"
-ANYDESK_REPO="https://keys.anydesk.com/repos/RPM-GPG-KEY"
-ANYDESK_ADD="[anydesk]\nname=AnyDesk Fedora - stable\nbaseurl=http://rpm.anydesk.com/fedora/$"basearch"/\ngpgcheck=1\nrepo_gpgcheck=1\ngpgkey=https://keys.anydesk.com/repos/RPM-GPG-KEY"
-FLATPAK_APPS="io.github.diegoivan.pdf_metadata_editor com.obsproject.Studio io.github.flattool.Ignition org.pitivi.Pitivi io.gitlab.adhami3310.Impression io.anytype.anytype org.nickvision.tubeconverter com.microsoft.Edge io.github.giantpinkrobots.varia"
-APPS="anydesk remmina gparted gimp inkscape handbrake-gui zen-browser gpu-screen-recorder-ui"
-
-VSCODE_REPO="[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc"
-VSCODE="code"
-DOCKER_REPO="'https://download.docker.com/linux/fedora/docker-ce.repo'"
-CONTAINERS="podman podman-compose podman-docker docker docker-ce docker-ce-cli containerd.io docker-compose-plugin"
-FLATPAK_PODMANDESKTOP="io.podman_desktop.PodmanDesktop"
-STARSHIP_REPO="chronoscrat/starship"
-DEV_APPS="gh starship"
-FLATPAK_DEV_APPS="io.github.shonebinu.Brief me.iepure.devtoolbox rest.insomnia.Insomnia"
-JETBRAINS_FONTS_REPO="maveonair/jetbrains-mono-nerd-fonts"
-JETBRAINS_FONTS="jetbrains-mono-nerd-fonts jetbrains-mononl-nerd-fonts"
-MICROSOFT_FONTS="cabextract fontconfig"
-MICROSOFT_CORE_FONTS="https://downloads.sourceforge.net/project/mscorefonts2/rpms/msttcore-fonts-installer-*.noarch.rpm"
-
-WINBOAT="freerdp winboat-*-x86_64.rpm"
-
-GAMING_REPO="atim/heroic-games-launcher"
-GAMING="steam gamemode gamescope mangohud heroic-games-launcher-bin qt6-qtwebengine"
-FLATPAK_GAMING="io.github.radiolamp.mangojuice com.steamgriddb.SGDBoop com.vysp3r.ProtonPlus com.github.Matoking.protontricks org.prismlauncher.PrismLauncher net.retrodeck.retrodeck io.github.hedge_dev.hedgemodmanager"
-
-WINE="wine-desktop wine-filesystem winetricks wine-mono"
-
-FLATPAK_THEME="org.gtk.Gtk3theme.adw-gtk3 org.gtk.Gtk3theme.adw-gtk3-dark"
-
-## dependencies to inicialize ##
-# sudo in memory
-echo -e "${AMARELO}Solicitando acesso root para as operações...${RESET}"
-sudo -v
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
-
-# shh key autenticate
-echo -e "${AMARELO}Verificando conexão SSH com GitHub...${RESET}"
-if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
-    echo -e "${VERDE}SSH já configurado! Ignorando...${RESET}"
-else
-    echo -e "${AMARELO}Configurando chave SSH...${RESET}"
-    eval "$(ssh-agent -s)"
-    ssh-add ~/.ssh/id_ed25519 2> /dev/null || echo -e "${VERMELHO}Aviso:${RESET} Arquivo ~/.ssh/id_ed25519 não encontrado."
-    ssh -T git@github.com
-fi
-
-# GitHub CLI Token autenticate
-echo -e "${AMARELO}Verificando autenticação do GitHub CLI...${RESET}"
-if gh auth status &> /dev/null; then
-    echo -e "${VERDE}GitHub CLI já está autenticado! Ignorando...${RESET}"
-else
-    echo -e "${AMARELO}Iniciando login no GitHub CLI...${RESET}"
-    gh auth login
-fi
-
-# dialog installation
-if rpm -q dialog &> /dev/null; then
-    echo -e "${VERDE}O pacote dialog já está instalado. Pulando...${RESET}"
-    sleep 1.5
-else
-    echo -e "${AMARELO}Instalando Dialog...${RESET}"
-    sudo dnf install dialog -y
-    sleep 1.5
-fi
-
-# update system and remove blotwares
-update_configs() {
-    export SUDO_ASKPASS=/usr/bin/zenity
-
-    dialog --title "Aguarde" --infobox "\nRemovendo bloatwares..." 7 50
-    sudo dnf remove -y $BLOTWARE &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nAtualizando o sistema...\nIsso pode levar alguns minutos." 7 50
-    sudo dnf update --refresh -y &> /dev/null
-    sleep 1
-
-    dialog --title "Processo finalizado" --msgbox "\nO sistema foi limpo e atualizado com sucesso!" 8 45
-    }
-
-# install rpm fusion and system dependencies
-dependencies() {
-    export SUDO_ASKPASS=/usr/bin/zenity
-
-    dialog --title "Aguarde" --infobox "\nInstalando adicionando asteriscos no sudo..." 7 50
-    sleep 1
-    if grep -q "pwfeedback" "$SUDOERS_FILE" &> /dev/null; then
-        dialog --title "Interrompido" --infobox "\nOs asteriscos já estão ativados no sudo." 7 50
-        sleep 1
-    else
-        sudo sed -i '/Defaults/a Defaults pwfeedback' "$SUDOERS_FILE" &> /dev/null
-
-        if sudo visudo -c &> /dev/null; then
-            dialog --title "Processo finalizado" --infobox "\nConfiguração aplicada com sucesso!" 7 50
-            sleep 5
-        else
-            sudo sed -i '/Defaults pwfeedback/d' "$SUDOERS_FILE" &> /dev/null
-            dialog --title "Abortado" --msgbox "\nErro ao validar o arquivo sudoers. Revertendo alterações..." 7 50
-            sleep 1
-        fi
-    fi
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nInstalando repositórios RPM Fusion..." 7 50
-    sudo dnf install -y $RPMFUSION_FREE $RPMFUSION_NONFREE $RPMFUSION_APPSTREAM &> /dev/null
-    sudo dnf check-update &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nInstalando e configurando dependências do sistema..." 7 50
-    sudo dnf copr enable -y $TOPGRADE_REPO &> /dev/null
-    sudo dnf copr enable -y $RESOURCES_REPO &> /dev/null
-    sudo dnf install -y $SYSTEM_PACKAGES $ARCHIVE $APPIMAGE_SUPPORT &> /dev/null
-    sudo systemctl enable --now cups &> /dev/null
-    sudo systemctl enable --now snapper-timeline.timer &> /dev/null
-    sudo systemctl enable --now snapper-cleanup.timer &> /dev/null
-    sudo timedatectl set-local-rtc 0 --adjust-system-clock &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nConfigurando e Instalando flatpaks do sistema..." 7 50
-    flatpak remote-delete fedora &> /dev/null
-    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo &> /dev/null
-    flatpak install flathub -y $FLATPAK_PACKAGE_SYSTEM &> /dev/null
-    sleep 1
-
-    dialog --title "Processo finalizado" --msgbox "\nRepositórios e dependências instalados com sucesso!" 8 45
+# executa um comando como o usuário do sudo, com ambiente utilizável (bus da sessão, PATH)
+as_user() {
+  runuser -u "$SUDO_USER" -- env \
+    HOME="$SUH" \
+    XDG_RUNTIME_DIR="/run/user/$UID_R" \
+    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$UID_R/bus" \
+    PATH="$SUH/.local/bin:$SUH/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin" \
+    "$@"
 }
 
-# install graphics drivers and enable video acceleration
-video_multimedia() {
-    export SUDO_ASKPASS=/usr/bin/zenity
-
-    dialog --title "Aguarde" --infobox "\nInstalando drivers de vídeo AMD..." 7 50
-    sudo dnf install -y $GRAPHICS_CARD_DRIVERS &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nAdicionando aceleração de vídeo..." 7 50
-    sudo dnf swap $VA_SWAP -y --allowerasing &> /dev/null
-    sudo dnf swap $VDPAU_SWAP -y --allowerasing &> /dev/null
-    sudo dnf install -y $HA &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nAdicionando codecs proprietários..." 7 50
-    flatpak install flathub -y $FLATPAK_FFMPEG &> /dev/null
-    sudo dnf swap $FFMPEG -y --allowerasing &> /dev/null
-    sudo dnf update -y @multimedia --setopt="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin &> /dev/null
-    sleep 1
-
-    dialog --title "Processo finalizado" --msgbox "\nOs drivers de vídeo foram configurados com sucesso!" 8 45
+# clone raso de um repo público de dotfiles/scripts; falha dura (é requisito)
+clone_repo() {
+  local url="$1" dest="$2"
+  rm -rf "$dest"
+  git clone --depth 1 --quiet "$url" "$dest" || die "git clone falhou: $url"
+  ok "clone: $(basename "$dest") <- $url"
 }
 
-# apps and utilities
-apps_and_utilities() {
-    export SUDO_ASKPASS=/usr/bin/zenity
+step "Iniciando fedoraPI (Fedora $FDC, log: $LOG)"
 
-    dialog --title "Aguarde" --infobox "\nAdicionando AnyDesk ao repositório do sistema..." 7 50
-    sudo rpmkeys --import $ANYDESK_REPO &> /dev/null
-    echo -e $ANYDESK_ADD | sudo tee /etc/yum.repos.d/AnyDesk-Fedora.repo &> /dev/null
-    sleep 1
+# --------------------------------------------------------------- #
+# 1. REPOS      terra + rpmfusion + coprs + docker-ce + google    #
+# --------------------------------------------------------------- #
+step "Fase 1/12 — repos de terceiros"
 
-    dialog --title "Aguarde" --infobox "\nInstalando LinuxToys..." 7 50
-    curl -fsSL https://linux.toys/install.sh | bash &> /dev/null
-    sleep 1
+dnf install -y --nogpgcheck \
+  --repofrompath "terra,https://repos.fyralabs.com/terra$FDC" \
+  terra-release terra-gpg-keys
 
-    dialog --title "Aguarde" --infobox "\nInstalando aplicativos essenciais..." 7 50
-    sudo dnf copr enable -y $TENACITY_REPO &> /dev/null
-    sudo dnf copr enable -y $GPU_RECORDER_REPO &> /dev/null
-    sudo dnf install -y $APPS &> /dev/null
-    flatpak install flathub -y $FLATPAK_APPS &> /dev/null
-    sleep 1
+dnf install -y "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$FDC.noarch.rpm"
+dnf install -y "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$FDC.noarch.rpm"
 
-    dialog --title "Processo finalizado" --msgbox "\nOs apps foram instalados com sucesso!" 8 45
-}
-
-# development dependencies
-development() {
-    export SUDO_ASKPASS=/usr/bin/zenity
-
-    dialog --title "Aguarde" --infobox "\nInstalando plugins..." 7 50
-    cp $FPI_BASH_DIR/.bashrc $HOME &> /dev/null
-    cp $FPI_BASH_DIR/.bash_aliases $HOME &> /dev/null
-    cp $FPI_BASH_DIR/.blerc $HOME &> /dev/null
-    cp $FPI_BASH_DIR/.booster $HOME &> /dev/null
-
-    git clone --recursive --depth 1 --shallow-submodules https://github.com/akinomyoga/ble.sh.git  &> /dev/null
-    make -C ble.sh install PREFIX=~/.local &> /dev/null
-    sudo dnf install -y dnf-plugins-core &> /dev/null
-    sudo dnf install -y android-tools python3-pip &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nInstalando ZED IDE..." 7 50
-    curl -fsSL https://zed.dev/install.sh | sh &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nInstalando Microsoft VSCode..." 7 50
-    sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc &> /dev/null
-    sudo echo -e $VSCODE_REPO | sudo tee /etc/yum.repos.d/vscode.repo &> /dev/null
-    sudo dnf install -y $VSCODE &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nInstalando containers e suas dependências..." 7 50
-    sudo dnf config-manager addrepo --from-repofile=$DOCKER_REPO &> /dev/null
-    sudo dnf install -y $CONTAINERS &> /dev/null
-    flatpak install flathub -y $FLATPAK_PODMANDESKTOP &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nHabilitando o docker..." 7 50
-    sudo systemctl start docker &> /dev/null
-    sudo systemctl enable docker &> /dev/null
-    sudo groupadd docker &> /dev/null
-    sudo usermod -aG docker $USER &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nInstalando e configurando o mise..." 7 50
-    curl -fsSL https://mise.run/bash | sh &> /dev/null
-    cp $FPI_BASH_DIR/.bashrc $HOME &> /dev/null
-    source $HOME/.bashrc &> /dev/null
-    mkdir -p $LOCAL_DIR/bash-completion/completions/
-    mise completion bash --include-bash-completion-lib > ~/.local/share/bash-completion/completions/mise
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nInstalando dependências de programação via mise..." 7 50
-    mise use -g usage &> /dev/null
-    mise use -g node@lts &> /dev/null
-    mise use -g opencode &> /dev/null
-    mise use -g java@temurin-8 &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nInstalando ferramentas para desenvolvimento..." 7 50
-    sudo dnf copr enable -y $STARSHIP_REPO &> /dev/null
-    source $HOME/.bashrc &> /dev/null
-    sudo dnf install -y $DEV_APPS &> /dev/null
-    flatpak install flathub -y $FLATPAK_DEV_APPS &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nInstalando JetBrains Mono Nerd Font..." 7 50
-    sudo dnf copr enable -y $JETBRAINS_FONTS_REPO &> /dev/null
-    sudo dnf install -y $JETBRAINS_FONTS &> /dev/null
-    gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrainsMono Nerd Font 11'
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nInstalando fontes da Microsoft..." 7 50
-    sudo dnf install -y $MICROSOFT_FONTS &> /dev/null
-    sudo dnf install -y $MICROSOFT_CORE_FONTS &> /dev/null
-    sleep 1
-
-    dialog --title "Processo finalizado" --msgbox "\nO seu sistema está pronto para desenvolvimento!" 8 45
-}
-
-# installation winboat and dependencies
-winboat (){
-    export SUDO_ASKPASS=/usr/bin/zenity
-    tput civis
-
-    dialog --title "Aguarde" --infobox "\nInstalando Winboat..." 7 50
-    temp_folder
-    gh release download --repo TibixDev/winboat --pattern "winboat-*-x86_64.rpm" &> /dev/null
-    sudo dnf install -y $WINBOAT &> /dev/null
-    cd $HOME
-    sleep 1
-
-    dialog --title "Processo finalizado" --msgbox "\nO WinBoat foi instalado com sucesso!" 8 45
-}
-
-# gaming dependencies
-gaming() {
-    export SUDO_ASKPASS=/usr/bin/zenity
-
-    dialog --title "Aguarde" --infobox "\nInstalando Steam e Heroic Games Launcher..." 7 50
-    sudo dnf copr enable -y $GAMING_REPO &> /dev/null
-    sudo dnf install -y $GAMING &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nInstalando dependências para jogos..." 7 50
-    flatpak install flathub -y $FLATPAK_GAMING &> /dev/null
-    sleep 1
-
-    dialog --title "Processo finalizado" --msgbox "\nO seu sistema está pronto para jogos!" 8 45
-}
-
-# wine dependencies
-wine() {
-    export SUDO_ASKPASS=/usr/bin/zenity
-
-    dialog --title "Aguarde" --infobox "\nInstalando o Wine e suas dependências..." 7 50
-    sudo dnf install -y $WINE &> /dev/null
-    sleep 1
-
-    dialog --title "Processo finalizado" --msgbox "\nO Wine foi instalado com sucesso!" 8 45
-}
-
-# personalize system and themes
-personalize() {
-    export SUDO_ASKPASS=/usr/bin/zenity
-
-    dialog --title "Aguarde" --infobox "\nPersonalizando o sistema e temas..." 7 50
-    custom_icons_folder
-    cp -r $FPI_EXTENSIONS_DIR/gradia-* $EXTENSIONS_DIR &> /dev/null
-    cp $FPI_GDM_DIR/.watermark.png $CONFIG_DIR &> /dev/null
-    cp -r $FPI_ICONS_DIR/Adwaita-* $ICONS_DIR &> /dev/null
-    cp -r $FPI_ICONS_DIR/MoreWaita $ICONS_DIR &> /dev/null
-    cp $FPI_ICONS_DIR/.folder-*.svg $HOME &> /dev/null
-    cp -r $FPI_SRC_DIR/autostart $CONFIG_DIR &> /dev/null
-    cp -r $FPI_SRC_DIR/applications $LOCAL_DIR &> /dev/null
-    cp -r $FPI_APPS_DIR/. $CONFIG_DIR &> /dev/null
-
-    temp_folder
-    gh release download --repo lassekongo83/adw-gtk3 --pattern "adw-gtk3v*.tar.xz" &> /dev/null
-    tar -xf adw-gtk3v*.tar.xz -C $THEME_DIR &> /dev/null
-    cd $HOME
-    flatpak install flathub -y $FLATPAK_THEME &> /dev/null
-
-    gsettings set org.gnome.desktop.interface gtk-theme "Adw-gtk3-dark" &> /dev/null
-    gsettings set org.gnome.desktop.interface icon-theme "Adwaita-slate" &> /dev/null
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nInstalando extensões no gnome..." 7 50
-    pip install -q gnome-extensions-cli &> /dev/null
-    for ext in "${EXTENSIONS[@]}"; do
-        (gnome-extensions-cli install "$ext" && gnome-extensions-cli enable "$ext") &> /dev/null
-    done
-    sleep 1
-
-    dialog --title "Aguarde" --infobox "\nConfigurando Plymouth..." 7 50
-    sudo rm $SPINNER_DIR/watermark.png &> /dev/null
-    sudo sed -i '/\[two-step\]/,/VerticalAlignment/ s/VerticalAlignment=.7/VerticalAlignment=.5/' $SPINNER_CONFIG
-    sudo plymouth-set-default-theme -R spinner &> /dev/null
-    sleep 1
-
-    dialog --title "Processo finalizado" --msgbox "\nO sistema foi personalizado com sucesso!" 8 45
-}
-
-# system cleanup
-cleanup() {
-    export SUDO_ASKPASS=/usr/bin/zenity
-
-    dialog --title "Aguarde" --infobox "\nLimpando cache e pacotes orfãos do sistema..." 7 50
-    sudo dnf clean all &> /dev/null
-    sudo dnf autoremove -y &> /dev/null
-    cd $HOME
-    sudo rm -rf $TEMP_DIR
-    sleep 1
-}
-
-# welcome
-tput civis
-TITULO="
-███████╗███████╗██████╗░░█████╗░██████╗░░█████╗░  ██████╗░██╗
-██╔════╝██╔════╝██╔══██╗██╔══██╗██╔══██╗██╔══██╗  ██╔══██╗██║
-█████╗░░█████╗░░██║░░██║██║░░██║██████╔╝███████║  ██████╔╝██║
-██╔══╝░░██╔══╝░░██║░░██║██║░░██║██╔══██╗██╔══██║  ██╔═══╝░██║
-██║░░░░░███████╗██████╔╝╚█████╔╝██║░░██║██║░░██║  ██║░░░░░██║
-╚═╝░░░░░╚══════╝╚═════╝░░╚════╝░╚═╝░░╚═╝╚═╝░░╚═╝  ╚═╝░░░░░╚═╝
-
-By: EmanuProds
-"
-dialog --infobox "$TITULO" 11 65
-sleep 5
-
-# loop menu
-while true; do
-    OPTIONS=$(dialog --stdout \
-        --backtitle "Fedora Linux Workstation - Script de Pós-Instalação" \
-        --menu "Escolha uma opção:" \
-        0 0 8 \
-        1 "Atualizar e remover blotwares do sistema" \
-        2 "Instalar repositórios e dependências do sistema" \
-        3 "Configurar drivers de vídeo e aceleração" \
-        4 "Instalar apps e ferramentas" \
-        5 "Instalar ferramentas de desenvolvimento" \
-        6 "Instalar e configurar o WinBoat" \
-        7 "Instalar e configurar suporte a jogos" \
-        8 "Instalar e configurar o Wine" \
-        9 "Personalizar o sistema" \
-        0 "Limpar cache e sair")
-
-    [ $? -ne 0 ] && break
-
-    # menu options
-    case $OPTIONS in
-        1)
-            update_configs
-            ;;
-        2)
-            dependencies
-            ;;
-        3)
-            video_multimedia
-            ;;
-        4)
-            apps_and_utilities
-            ;;
-        5)
-            development
-            ;;
-        6)
-            winboat
-            ;;
-        7)
-            gaming
-            ;;
-        8)
-            wine
-            ;;
-        9)
-            personalize
-            ;;
-        0)
-            cleanup
-            break
-    esac
+for copr in sneexy/zen-browser atim/heroic-games-launcher \
+            rivenirvana/morewaita-icon-theme chronoscrat/starship \
+            bieszczaders/kernel-cachyos-lto bieszczaders/kernel-cachyos-addons; do
+  try_warn dnf copr enable -y "$copr"
 done
 
-clear
-echo -e "${VERDE}Script finalizado! É fortemente recomendado que reinicie o seu sistema -_^${RESET}"
+try_warn dnf config-manager addrepo --overwrite \
+  --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
+
+# escrever o repo do Google sempre (idempotente)
+cat > /etc/yum.repos.d/google-cloud-sdk.repo <<'EOF'
+[google-cloud-sdk]
+name=Google Cloud SDK
+baseurl=https://packages.cloud.google.com/yum/repos/google-cloud-sdk-el9-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
+       https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+ok "repos prontos"
+
+# --------------------------------------------------------------- #
+# 2. LIMPEZA DO SISTEMA (bloatware)                                #
+# --------------------------------------------------------------- #
+step "Fase 2/12 — removendo bloatware pré-instalado"
+if [ -s "$LISTS/removals.txt" ]; then
+  mapfile -t REMS < <(read_list "$LISTS/removals.txt")
+  if [ "${#REMS[@]}" -gt 0 ]; then
+    try_warn dnf remove -y --setopt=clean_requirements_on_remove=True "${REMS[@]}"
+  fi
+fi
+ok "bloatware removido"
+
+# --------------------------------------------------------------- #
+# 3. PACOTES                                                       #
+# --------------------------------------------------------------- #
+step "Fase 3/12 — instalando pacotes (dnf)"
+mapfile -t PKGS < <(read_list "$LISTS/packages.txt")
+[ "${#PKGS[@]}" -gt 0 ] || die "packages.txt vazio"
+dnf install -y "${PKGS[@]}"
+ok "pacotes instalados"
+
+# --- cola do kernel cachy (comentada linha a linha em candidates) --
+if [ -f /etc/default/zram-generator ] || dnf list --installed zram-generator-defaults >/dev/null 2>&1; then
+  try_warn dnf swap -y zram-generator-defaults cachyos-settings
+fi
+try_warn dracut -f
+try_warn setsebool -P domain_kernel_load_modules on
+mkdir -p /etc/dnf/libdnf5-plugins/actions.d
+cat > /etc/dnf/libdnf5-plugins/actions.d/cachy-default.actions <<'EOF'
+# Depois de instalar qualquer pacote kernel*, deixa o kernel CachyOS mais novo como entrada padrão do boot
+post_transaction:kernel*:in::/usr/bin/sh -c /usr/bin/grubby\ --set-default=/boot/$(ls\ /boot\ |\ grep\ vmlinuz.*cachy\ |\ sort\ -V\ |\ tail\ -1)
+EOF
+kdef=$(ls /boot 2>/dev/null | grep 'vmlinuz.*cachy' | sort -V | tail -1 || true)
+if [ -n "$kdef" ]; then
+  try_warn grubby --set-default="/boot/$kdef"
+  ok "kernel default: $kdef"
+else
+  warn "nenhum kernel cachy encontrado em /boot (instalou kernel-cachyos-lto? voltando ao Fedora)"
+fi
+
+# --------------------------------------------------------------- #
+# 4. GRÁFICOS/CODECS (Radeon: VA/VDPAU freeworld + ffmpeg)         #
+# --------------------------------------------------------------- #
+step "Fase 4/12 — codecs e aceleração de vídeo"
+try_warn dnf swap -y ffmpeg-free ffmpeg
+try_warn dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld
+try_warn dnf swap -y mesa-vdpau-drivers mesa-vdpau-drivers-freeworld
+try_warn dnf group install -y multimedia --setopt=install_weak_deps=False --exclude=PackageKit-gstreamer-plugin
+try_warn dnf install -y libva libva-utils
+ok "codecs/VA-API prontos"
+
+# --------------------------------------------------------------- #
+# 5. SERVIÇOS                                                      #
+# --------------------------------------------------------------- #
+step "Fase 5/12 — serviços systemd"
+while IFS= read -r svc; do
+  try_warn systemctl enable --now "$svc"
+done < <(read_list "$LISTS/services.txt")
+ok "serviços habilitados"
+
+# --------------------------------------------------------------- #
+# 6. FLATPAKS                                                       #
+# --------------------------------------------------------------- #
+step "Fase 6/12 — Flathub + flatpaks"
+command -v flatpak >/dev/null 2>&1 || dnf install -y flatpak
+try_warn flatpak remote-add --system --if-not-exists flathub \
+  https://dl.flathub.org/repo/flathub.flatpakrepo
+mapfile -t FPKS < <(read_list "$LISTS/flatpak.txt")
+if [ "${#FPKS[@]}" -gt 0 ]; then
+  try_warn flatpak install -y --system --noninteractive "${FPKS[@]}"
+fi
+ok "flatpaks instalados"
+
+# --------------------------------------------------------------- #
+# 7. DOTFILES    (clone do repo dotfiles — fonte única)           #
+# --------------------------------------------------------------- #
+step "Fase 7/12 — dotfiles (clone EmanuProds/dotfiles)"
+clone_repo "$DOTFILES_REPO" "$CLONES/dotfiles"
+install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
+  "$CLONES/dotfiles/home/.bashrc" "$SUH/.bashrc"
+install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
+  "$CLONES/dotfiles/home/.shell_aliases" "$SUH/.shell_aliases"
+install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
+  "$CLONES/dotfiles/home/gdm/watermark.png" "$SUH/.config/watermark.png"
+cp -a "$CLONES/dotfiles/home/.config/." "$SUH/.config/"
+chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config/ghostty" "$SUH/.config/zed" \
+  "$SUH/.config/gamemode.ini" "$SUH/.config/topgrade.toml" "$SUH/.config/watermark.png" \
+  "$SUH/.bashrc" "$SUH/.shell_aliases" 2>/dev/null || true
+ok "dotfiles no lugar (bash, ghostty, zed, gamemode, topgrade, watermark)"
+
+# --- plymouth: esconder a watermark e centralizar o spinner (ajuste herdado do Arch; [two-step] é o teste de compatibilidade no 44) --- #
+SPINNER_CONF="/usr/share/plymouth/themes/spinner/spinner.plymouth"
+if [ -f "$SPINNER_CONF" ] && grep -q '\[two-step\]' "$SPINNER_CONF"; then
+  try_warn rm -f /usr/share/plymouth/themes/spinner/watermark.png
+  try_warn sed -i '/\[two-step\]/,/VerticalAlignment/ s/VerticalAlignment=.7/VerticalAlignment=.5/' "$SPINNER_CONF"
+  try_warn plymouth-set-default-theme -R spinner
+  ok "plymouth spinner ajustado"
+else
+  warn "spinner.plymouth sem seção [two-step] (tema mudou no 44) — tweak do plymouth ignorado"
+fi
+
+# --------------------------------------------------------------- #
+# 8. DCONF (restauração)  (vem do clone do dotfiles)              #
+# --------------------------------------------------------------- #
+step "Fase 8/12 — restaurando GNOME (dconf dump do repo dotfiles)"
+try_warn as_user dconf load / < "$CLONES/dotfiles/dconf/gnome-settings.ini"
+ok "dconf restaurado"
+
+# --------------------------------------------------------------- #
+# 9. EXTENSÕES DO GNOME  (D-Bus: InstallRemoteExtension)          #
+# --------------------------------------------------------------- #
+step "Fase 9/12 — extensões GNOME (19 UUIDs)"
+ext_fail=0
+while IFS= read -r uuid; do
+  if ! as_user dbus-send --session --print-reply \
+       --dest=org.gnome.Shell.Extensions \
+       /org/gnome/Shell/Extensions \
+       org.gnome.Shell.Extensions.InstallRemoteExtension string:"$uuid" >/dev/null 2>&1; then
+    ext_fail=$((ext_fail + 1))
+    warn "extensão falhou/não achou na loja: $uuid"
+  fi
+done < <(read_list "$LISTS/extensions.txt")
+[ "$ext_fail" -eq 0 ] && ok "todas as extensões instaladas" \
+  || warn "$ext_fail extensão(ões) pendentes — D-Bus precisa da sessão GNOME ativa; instale via Extension Manager se faltar"
+
+# --------------------------------------------------------------- #
+# 10. MISE + GLOBAIS DO NPM + LSP DE GO                            #
+# --------------------------------------------------------------- #
+step "Fase 10/12 — mise (node/bun/go/usage/pipx/gh) + LSPs npm"
+as_user bash -c 'curl -fsSL https://mise.run | sh' || warn "mise.run falhou"
+if [ -x "$SUH/.local/bin/mise" ]; then
+  mapfile -t TOOLS < <(read_list "$LISTS/mise.txt")
+  if [ "${#TOOLS[@]}" -gt 0 ]; then
+    as_user "$SUH/.local/bin/mise" use -g "${TOOLS[@]}" || true
+  fi
+fi
+mapfile -t NPMG < <(read_list "$LISTS/npm.txt")
+if [ "${#NPMG[@]}" -gt 0 ]; then
+  as_user npm i -g --silent "${NPMG[@]}" || warn "npm -g parcial"
+fi
+# gopls: LSP de Go (o mise já instalou o go na fase acima)
+if as_user bash -c 'command -v go >/dev/null'; then
+  try_warn as_user bash -c 'go install golang.org/x/tools/gopls@latest'
+fi
+# conclusão de comandos do mise (como no setup do Arch)
+try_warn as_user bash -c 'mkdir -p "$HOME/.local/share/bash-completion/completions" && \
+  mise completion bash --include-bash-completion-lib > "$HOME/.local/share/bash-completion/completions/mise"'
+ok "toolchains prontos"
+
+# --------------------------------------------------------------- #
+# 11. OPENCODE + SCRIPTS AUXILIARES (tudo clonado dos repos)       #
+# --------------------------------------------------------------- #
+step "Fase 11/12 — opencode (do dotfiles) + accent-sync/titlebar (repos próprios)"
+
+# esqueleto do opencode: config sanitizada + comandos + plugin de memória
+for d in commands plugins tests; do
+  [ -d "$CLONES/dotfiles/opencode/$d" ] && cp -a "$CLONES/dotfiles/opencode/$d" "$SUH/.config/opencode/"
+done
+for f in opencode.json AGENTS.md env.example package.json; do
+  install -m 644 "$CLONES/dotfiles/opencode/config/$f" "$SUH/.config/opencode/$f"
+done
+# skills: vem da raiz do repo dotfiles e vai para ~/.agents/skills
+# (é o caminho lido pelo opencode.json através de "skills")
+install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.agents"
+cp -a "$CLONES/dotfiles/skills" "$SUH/.agents/skills"
+chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config/opencode" "$SUH/.agents"
+as_user npm install --silent --prefix "$SUH/.config/opencode" || warn "npm opencode parcial"
+
+# auxiliares + units: um repo por script
+clone_repo "$ACCENT_SYNC_REPO" "$CLONES/accent-sync"
+clone_repo "$TITLEBAR_REPO" "$CLONES/titlebar"
+install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
+  "$CLONES/accent-sync/accent-sync" "$SUH/.local/bin/accent-sync"
+install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
+  "$CLONES/titlebar/opencode-desktop-titlebar-patch" "$SUH/.local/bin/opencode-desktop-titlebar-patch"
+install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.config/systemd/user"
+install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/accent-sync/units/"* "$SUH/.config/systemd/user/"
+install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/titlebar/units/"* "$SUH/.config/systemd/user/"
+as_user systemctl --user daemon-reload || true
+for u in accent-sync.path opencode-titlebar-patch.path; do
+  try_warn as_user systemctl --user enable --now "$u"
+done
+ok "opencode + helpers + units ok (memory.db nasce do zero; migre ~/.opencode/memory.db* do Arch se quiser histórico)"
+
+# --------------------------------------------------------------- #
+# 12. FASES DE RUNTIME (rpm do gh / AppImage / zip / curl|sh)     #
+# --------------------------------------------------------------- #
+step "Fase 12/12 — fases pós-dnf (phases.txt runtime)"
+while IFS='|' read -r kind name url extra; do
+  case "$kind" in
+    rpm)
+      rpm_url=$(curl -fsSL "$url" | \
+        grep -oE '"browser_download_url": *"[^"]+"' | cut -d'"' -f4 | \
+        grep -E "$extra" | head -1 || true)
+      if [ -n "$rpm_url" ]; then
+        curl -fsSL "$rpm_url" -o "/tmp/$name.rpm" && dnf install -y "/tmp/$name.rpm"
+        rm -f "/tmp/$name.rpm"; ok "$name: rpm instalado ($rpm_url)"
+      else warn "$name: asset não achado no release"; fi
+      ;;
+    appimage)
+      as_user mkdir -p "$SUH/Applications" "$SUH/.local/share/applications"
+      if curl -fsS --retry 2 "$url" -o /tmp/epic.appimage; then
+        install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" /tmp/epic.appimage "$SUH/Applications/$extra"
+        cat > "$SUH/.local/share/applications/epic-launcher.desktop" <<EOF
+[Desktop Entry]
+Name=Epic Games Launcher
+Exec=$SUH/Applications/$extra
+Type=Application
+Categories=Game;
+StartupNotify=true
+EOF
+        chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.local/share/applications/epic-launcher.desktop"
+        try_warn as_user update-desktop-database "$SUH/.local/share/applications"
+        ok "$name: AppImage nativo em ~/Applications (self-updater da EGLv2)"
+      else
+        warn "$name: download falhou (checar conexao/endpoint)"
+      fi
+      rm -f /tmp/epic.appimage
+      ;;
+    zip)
+      curl -fsSL "$url" -o "/tmp/$name.zip"
+      case "$extra" in
+        fonts)
+          install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.local/share/fonts"
+          as_user unzip -oq "/tmp/$name.zip" -d "$SUH/.local/share/fonts/"
+          try_warn as_user fc-cache -f
+          try_warn as_user gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrainsMono Nerd Font 11'
+          ;;
+      esac
+      rm -f "/tmp/$name.zip"; ok "$name: zip aplicado"
+      ;;
+    sh)
+      curl -fsSL "$url" | bash
+      ok "$name: installer rodou"
+      ;;
+  esac
+done < <(read_list "$LISTS/phases.txt")
+
+# --------------------------------------------------------------- #
+# LIMPEZA FINAL                                                    #
+# --------------------------------------------------------------- #
+step "Cleanup"
+rm -rf "$CLONES"
+try_warn dnf autoremove -y
+try_warn flatpak uninstall -y --unused --system || true
+ok "concluído — log completo em $LOG"
+ok "lembrete: TODO-verify pendente na máquina real — btrbk (dnf), nomes dos pacotes Terra, kernel default após reboot"
