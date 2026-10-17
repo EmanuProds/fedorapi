@@ -1,0 +1,26 @@
+# phases.txt — instalações fora do dnf, tratadas pelas fases especiais do
+# fedoraPI.sh. Formato de cada linha: tipo|nome|URL|extra
+#   rpm      | nome | URL da API de releases do GitHub | regex do arquivo .rpm
+#   appimage | nome | URL de download                   | nome do arquivo em ~/Applications
+#   zip      | nome | URL de download                   | destino da descompactação
+#   sh       | nome | URL do script de instalação      | -
+#
+# Estas fases rodam no fim do script (fase 12/12).
+
+# Sunshine: .rpm oficial do upstream para fc44 (não se autatualiza pelo dnf;
+# o topgrade pode buscar o rpm novo depois)
+rpm|sunshine|https://api.github.com/repos/LizardByte/Sunshine/releases/latest|Sunshine-.*\.fc44\.x86_64\.rpm$
+
+# PWAsForFirefox: .rpm oficial do release (a extensão do navegador é instalada
+# depois, manualmente, pelo AMO)
+rpm|firefoxpwa|https://api.github.com/repos/filips123/PWAsForFirefox/releases/latest|firefoxpwa-.*\.x86_64\.rpm$
+
+# Epic Games Launcher: AppImage Linux NATIVO (EGLv2, com atualizador próprio)
+# → ~/Applications + entrada no menu
+appimage|epic|https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncher-x86_64.AppImage|EpicGamesLauncher.AppImage
+
+# JetBrains Mono Nerd (o pacote nerd-fonts do Terra não inclui o JetBrains Mono)
+zip|jetbrains-mono-nerd|https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip|fonts
+
+# LinuxToys: o instalador oficial tem suporte explícito ao Fedora
+sh|linuxtoys|https://linux.toys/install.sh|-

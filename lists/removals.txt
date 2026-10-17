@@ -1,0 +1,8 @@
+# removals.txt — bloatware que vem pré-instalado no Fedora, removido pelo
+# fedoraPI.sh (dnf remove -y). Comente uma linha para manter um pacote.
+gnome-connections
+gnome-contacts
+gnome-tour
+gnome-music
+vim
+libreoffice*
