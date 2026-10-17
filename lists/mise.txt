@@ -1,0 +1,7 @@
+# mise.txt — toolchain instalada via mise (mise deve vir antes via dnf/curl)
+node@lts
+bun@latest
+usage@latest
+go@latest
+pipx@latest
+gh@latest

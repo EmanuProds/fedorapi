@@ -1,0 +1,11 @@
+# services.txt — unidades systemd habilitadas com --now depois da instalação
+# dos pacotes (fase 5/12 do fedoraPI.sh).
+docker.service
+docker.socket
+cups.service
+snapper-timeline.timer
+snapper-cleanup.timer
+fstrim.timer
+earlyoom.service
+ananicy-cpp.service
+tailscaled.service

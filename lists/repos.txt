@@ -1,0 +1,36 @@
+## Terra (ghostty, zed, topgrade, resources, kooha, opencode, ms-core-fonts…)
+sudo dnf install --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release terra-gpg-keys
+
+## RPM Fusion (free + nonfree)
+sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+sudo dnf install https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+
+## COPRs
+sudo dnf copr enable bieszczaders/kernel-cachyos-lto        # kernel CachyOS (BORE + ThinLTO + NTSync, x86-64-v3)
+sudo dnf copr enable bieszczaders/kernel-cachyos-addons     # cachyos-settings, scx-scheds, ananicy-cpp…
+sudo dnf copr enable sneexy/zen-browser                     # navegador Zen
+sudo dnf copr enable atim/heroic-games-launcher              # Heroic (Epic/GOG)
+sudo dnf copr enable rivenirvana/morewaita-icon-theme       # MoreWaita (canal recomendado pelo upstream para Fedora)
+sudo dnf copr enable chronoscrat/starship                   # prompt do shell
+
+## Docker CE (decisão: repo do dnf, não pelo mise)
+sudo dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
+
+## Google Cloud SDK — arquivo de repo escrito pelo script
+## (/etc/yum.repos.d/google-cloud-sdk.repo)
+# [google-cloud-sdk]
+# name=Google Cloud SDK
+# baseurl=https://packages.cloud.google.com/yum/repos/google-cloud-sdk-el9-x86_64
+# enabled=1
+# gpgcheck=1
+# repo_gpgcheck=0
+# gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
+#        https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+
+## Cola do boot padrão do kernel CachyOS (feito pelo script):
+## /etc/dnf/libdnf5-plugins/actions.d/cachy-default.actions ->
+## post_transaction:kernel*:in::/usr/bin/sh -c /usr/bin/grubby\ --set-default=/boot/$(ls\ /boot\ |\ grep\ vmlinuz.*cachy\ |\ sort\ -V\ |\ tail\ -1)
+## SELinux: setsebool -P domain_kernel_load_modules on
+
+## Outros
+curl -fsSL https://tailscale.com/install.sh | sh            # tailscaled (serviço vem de services.txt)

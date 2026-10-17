@@ -1,0 +1,23 @@
+# extensions.txt — os 19 UUIDs das extensões do GNOME Shell.
+# O fedoraPI.sh instala cada UUID via D-Bus do próprio GNOME Shell
+# (org.gnome.Shell.Extensions.InstallRemoteExtension) — sem pipx/gext.
+# Precisa da sessão GNOME ativa; se falhar, instale pelo Extension Manager.
+adw-gtk3-colorizer@NiffirgkcaJ.github.com
+Bluetooth-Battery-Meter@maniacx.github.com
+caffeine@patapon.info
+center-window@mmc
+gradia-integration@alexandervanhee.github.io
+gsconnect@andyholmes.github.io
+gtk3-auto-dark@swsnr.de
+hide-universal-access@akiirui.github.io
+hotedge@jonathan.jdoda.ca
+just-perfection-desktop@just-perfection
+legacyschemeautoswitcher@joshimukul29.gmail.com
+mosaicwm@cleomenezesjr.github.io
+rounded-window-corners@fxgn
+shotzy@SamkitJain660.github.io
+soft-brightness-plus@joelkitching.com
+system-monitor@gnome-shell-extensions.gcampax.github.com
+tasks-in-panel@fthx
+tilingshell@ferrarodomenico.com
+touchpad@gpawru

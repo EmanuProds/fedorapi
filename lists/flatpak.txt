@@ -1,0 +1,53 @@
+## --- Navegadores ---
+com.google.Chrome                  # navegador Google
+com.microsoft.Edge                 # navegador Microsoft
+
+## --- Desenvolvimento, dados e APIs ---
+io.github.anil_e.Codd              # cliente PostgreSQL leve
+studio.planetpeanut.Bobby          # visualizador de bancos SQLite
+me.iepure.devtoolbox               # ferramentas de desenvolvimento
+es.danirod.Cartero                 # requisições HTTP e teste de APIs
+io.github.shonebinu.Brief          # consulta de cheatsheets de linha de comando
+com.ranfdev.DistroShelf            # interface gráfica para containers Distrobox
+
+## --- Acessos remotos ---
+com.anydesk.Anydesk               # desktop remoto
+org.remmina.Remmina                # cliente de desktop remoto (RDP/VNC/SSH)
+
+## --- Notas, escrita e documentos ---
+io.anytype.anytype                 # bloco de notas e base de conhecimento
+org.gnome.gitlab.somas.Apostrophe  # editor de Markdown
+page.codeberg.libre_menu_editor.LibreMenuEditor   # edita o menu do GNOME
+org.kde.drawy                      # ferramentas de desenho para rascunhos
+com.calibre_ebook.calibre          # gerenciamento de livros eletrônicos
+io.github.diegoivan.pdf_metadata_editor  # edição de metadados de PDF
+
+## --- Imagem, vídeo e discos ---
+io.gitlab.theevilskeleton.Upscaler # melhorar e redimensionar imagens
+org.pitivi.Pitivi                  # editor de vídeo não linear
+io.gitlab.adhami3310.Impression    # criação de discos inicializáveis
+
+## --- Jogos e compatibilidade ---
+net.retrodeck.retrodeck            # plataforma de jogos retro
+org.prismlauncher.PrismLauncher    # launcher do Minecraft
+com.vysp3r.ProtonPlus              # gerenciador de Proton/Wine/DXVK/VKD3D
+com.github.Matoking.protontricks   # ajustes e correções por jogo (Proton)
+io.github.radiolamp.mangojuice     # ajuste visual do MangoHud
+com.steamgriddb.SGDBoop            # aplica artes do SteamGridDB no Steam
+
+## --- Gerenciamento de flatpaks, AppImages e extensões ---
+io.github.flattool.Warehouse       # central de flatpaks
+it.mijorus.gearlever               # gerenciador de AppImages
+com.github.tchx84.Flatseal         # permissões dos flatpaks
+com.mattjakeman.ExtensionManager   # instalação de extensões do GNOME
+io.github.flattool.Ignition        # gerencia programas e scripts de inicialização
+io.github.realmazharhussain.GdmSettings  # personaliza a tela de login
+
+## --- Downloads ---
+io.github.giantpinkrobots.varia    # baixa arquivos, vídeos e torrents
+org.nickvision.tubeconverter       # baixa vídeo e áudio da web
+
+## --- Temas e runtimes (dependência de outros apps) ---
+org.gtk.Gtk3theme.adw-gtk3         # tema libadwaita portado para GTK3
+org.gtk.Gtk3theme.adw-gtk3-dark    # variante escura do tema GTK3
+org.freedesktop.Platform.ffmpeg-full  # codecs protegidos para edição de vídeo

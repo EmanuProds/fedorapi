@@ -1,0 +1,107 @@
+## --- Kernel e otimizações CachyOS (COPR bieszczaders) ---
+kernel-cachyos-lto                  # kernel BORE 1000 Hz + ThinLTO + NTSync + sched-ext (x86-64-v3 ✓ no 5500U)
+kernel-cachyos-lto-devel-matched    # headers do kernel, para compilar módulos DK
+cachyos-settings                   # sysctl/modprobe/udev do CachyOS (troca o zram-generator-defaults)
+scx-scheds                         # schedulers do sched-ext
+scx-tools                          # scxctl/scx_loader (controle dos schedulers)
+scx-manager                        # interface gráfica dos schedulers
+ananicy-cpp                        # daemon de prioridade automática
+cachyos-ananicy-rules              # regras de nice do CachyOS
+libdnf5-plugin-actions             # mantém o kernel cachy mais novo como boot padrão
+
+## --- Ferramentas Terra (repo fyralabs, atualização via dnf) ---
+ghostty                            # terminal
+zed                                # editor de código
+topgrade                           # atualizador unificado (dnf, flatpak, mise…)
+resources                          # monitor de sistema (GNOME)
+kooha                              # captura de tela
+
+## --- Navegadores ---
+zen-browser                        # COPR sneexy
+
+## --- Jogos ---
+steam                              # RPM Fusion nonfree
+steam-devices                      # alvos de controle (gamepad, controles remotos)
+gamemode                           # daemon de otimização para jogos
+gamescope                          # compositor para jogos (Focal/FXAA, VRR)
+mangohud                           # overlay de FPS no Vulkan/OpenGL
+heroic-games-launcher              # COPR atim (Epic/GOG via Legendary)
+
+## --- Wine e compatibilidade com Windows ---
+wine-core                          # habilita duplo clique em .exe/.msi no Nautilus
+wine-desktop                       # arquivos .desktop e integração de menu do Wine
+wine-fonts
+wine-pulseaudio                    # áudio via PipeWire/PulseAudio
+wine-mono                          # runtime .NET para programas Windows
+winetricks                        # instalador de dependências do Wine (winemenubuilder padrão)
+
+## --- Contêineres e virtualização ---
+podman
+podman-compose
+docker-ce                          # repo oficial do Docker
+docker-ce-cli
+containerd.io
+docker-buildx-plugin
+docker-compose-plugin
+distrobox                         # containers como se fossem do sistema host
+
+## --- Disco, Btrfs e armazenamento ---
+btrfs-progs
+btrfs-assistant
+snapper                            # snapshots do Btrfs
+btrbk                              # backup/snapshot de Btrfs (verificar na máquina)
+smartmontools                      # saúde dos discos (S.M.A.R.T.)
+
+## --- Impressão e PDF ---
+cups                                # sistema de impressão
+cups-pdf                           # impressora virtual para gerar PDF
+gutenprint                         # drivers de impressoras (Gutenberg)
+gutenprint-cups
+foomatic-db                        # banco de dados de impressoras
+foomatic-db-engine
+
+## --- Rede e compartilhamento ---
+samba                              # compartilhamento de arquivos (Windows)
+samba-client
+
+## --- Gráficos, imagem e vídeo ---
+gimp
+inkscape
+google-cloud-cli                   # gcloud/gsutil (repo oficial do Google)
+
+## --- Integração com o GNOME ---
+decibels                           # equalizador de áudio
+nautilus-python                    # extensão Python do Nautilus
+nautilus-share                     # compartilhamento de arquivos pelo Nautilus
+grilo-plugins                      # plugins de mídia do GNOME (fotos, vídeos)
+gnome-epub-thumbnailer             # miniaturas de .epub
+ffmpegthumbnailer                  # miniaturas de vídeo
+
+## --- Ferramentas do sistema ---
+fastfetch                          # informações do sistema no terminal
+ddcutil                            # controle de brilho dos monitores (aliases m10..m100)
+earlyoom                           # evita OOM killer travando o desktop
+fuse                               # execução de AppImage
+tesseract                          # OCR
+tesseract-langpack-por             # dados de OCR em português
+inotify-tools                      # watcher de arquivos
+icoutils                           # ícones dentro de executáveis
+
+## --- Arquivos e compactação ---
+file-roller                        # gerenciador de arquivos
+7zip
+p7zip
+p7zip-plugins
+unrar                              # RPM Fusion nonfree
+cabextract                         # extrai .cab (pacotes de drivers)
+zip
+
+## --- Desenvolvimento e mobile ---
+android-tools                      # adb/fastboot
+jq                                 # consulta JSON na linha de comando
+wget
+git                                # necessário para o clone dos repos de dotfiles/scripts
+dnf-plugins-core
+
+## --- Interface e temas ---
+morewaita-icon-theme               # COPR rivenirvana (ícones extras para o Adwaita)
