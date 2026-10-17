@@ -5,3 +5,4 @@ usage@latest
 go@latest
 pipx@latest
 gh@latest
+gcloud@latest

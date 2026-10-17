@@ -61,9 +61,16 @@ step "Iniciando fedoraPI (Fedora $FDC, log: $LOG)"
 # --------------------------------------------------------------- #
 step "Fase 1/12 — repos de terceiros"
 
-dnf install -y --nogpgcheck \
-  --repofrompath "terra,https://repos.fyralabs.com/terra$FDC" \
-  terra-release terra-gpg-keys
+# O --repofrompath so serve na primeira instalacao: com o terra-release ja
+# instalado existe /etc/yum.repos.d/terra.repo e o dnf recusa criar um segundo
+# repo com o mesmo ID ("o ID esta presente mais de uma vez").
+if rpm -q terra-release >/dev/null 2>&1; then
+  try_warn dnf install -y terra-release terra-gpg-keys
+else
+  dnf install -y --nogpgcheck \
+    --repofrompath "terra,https://repos.fyralabs.com/terra$FDC" \                     # o Google descontinuou os repos yum; o mise instala o SDK
+    terra-release terra-gpg-keys
+fi
 
 dnf install -y "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$FDC.noarch.rpm"
 dnf install -y "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$FDC.noarch.rpm"
@@ -77,17 +84,6 @@ done
 try_warn dnf config-manager addrepo --overwrite \
   --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
 
-# escrever o repo do Google sempre (idempotente)
-cat > /etc/yum.repos.d/google-cloud-sdk.repo <<'EOF'
-[google-cloud-sdk]
-name=Google Cloud SDK
-baseurl=https://packages.cloud.google.com/yum/repos/google-cloud-sdk-el9-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
-       https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
 ok "repos prontos"
 
 # --------------------------------------------------------------- #
@@ -96,8 +92,21 @@ ok "repos prontos"
 step "Fase 2/12 — removendo bloatware pré-instalado"
 if [ -s "$LISTS/removals.txt" ]; then
   mapfile -t REMS < <(read_list "$LISTS/removals.txt")
-  if [ "${#REMS[@]}" -gt 0 ]; then
-    try_warn dnf remove -y --setopt=clean_requirements_on_remove=True "${REMS[@]}"
+  # o dnf nao expande curingas: 'libreoffice*' seria tratado como nome literal.
+  # Entao resolvemos os padroes contra os pacotes realmente instalados.
+  REMS_EXPANDIDOS=()
+  for p in "${REMS[@]:-}"; do
+    [ -z "$p" ] && continue
+    if [[ $p == *'*'* ]]; then
+      while IFS= read -r encontrado; do
+        [ -n "$encontrado" ] && REMS_EXPANDIDOS+=("$encontrado")
+      done < <(rpm -qa --qf '%{NAME}\n' | grep -E "^${p//\*/.*}$" || true)
+    else
+      REMS_EXPANDIDOS+=("$p")
+    fi
+  done
+  if [ "${#REMS_EXPANDIDOS[@]}" -gt 0 ]; then
+    try_warn dnf remove -y --setopt=clean_requirements_on_remove=True "${REMS_EXPANDIDOS[@]}"
   fi
 fi
 ok "bloatware removido"
@@ -254,7 +263,8 @@ done
 # skills: vem da raiz do repo dotfiles e vai para ~/.agents/skills
 # (é o caminho lido pelo opencode.json através de "skills")
 install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.agents"
-cp -a "$CLONES/dotfiles/skills" "$SUH/.agents/skills"
+install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.agents/skills"
+cp -a "$CLONES/dotfiles/skills/." "$SUH/.agents/skills/"
 chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config/opencode" "$SUH/.agents"
 as_user npm install --silent --prefix "$SUH/.config/opencode" || warn "npm opencode parcial"
 
@@ -322,8 +332,12 @@ EOF
       rm -f "/tmp/$name.zip"; ok "$name: zip aplicado"
       ;;
     sh)
-      curl -fsSL "$url" | bash
-      ok "$name: installer rodou"
+      # dentro de try_warn: se o instalador falhar, a instalacao continua
+      if curl -fsSL "$url" | bash; then
+        ok "$name: installer rodou"
+      else
+        warn "$name: installer falhou (curl | bash)"
+      fi
       ;;
   esac
 done < <(read_list "$LISTS/phases.txt")

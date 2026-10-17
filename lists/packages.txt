@@ -30,7 +30,13 @@ heroic-games-launcher              # COPR atim (Epic/GOG via Legendary)
 ## --- Wine e compatibilidade com Windows ---
 wine-core                          # habilita duplo clique em .exe/.msi no Nautilus
 wine-desktop                       # arquivos .desktop e integração de menu do Wine
-wine-fonts
+wine-arial-winefonts               # no Fedora as fontes do Wine são pacotes individuais
+wine-courier-winefonts
+wine-fixedsys-winefonts
+wine-marlett-winefonts
+wine-ms-sans-serif-winefonts
+wine-small-winefonts
+wine-symbol-winefonts
 wine-pulseaudio                    # áudio via PipeWire/PulseAudio
 wine-mono                          # runtime .NET para programas Windows
 winetricks                        # instalador de dependências do Wine (winemenubuilder padrão)
@@ -57,8 +63,7 @@ cups                                # sistema de impressão
 cups-pdf                           # impressora virtual para gerar PDF
 gutenprint                         # drivers de impressoras (Gutenberg)
 gutenprint-cups
-foomatic-db                        # banco de dados de impressoras
-foomatic-db-engine
+foomatic                           # motor do banco de dados de impressoras
 
 ## --- Rede e compartilhamento ---
 samba                              # compartilhamento de arquivos (Windows)
@@ -67,12 +72,10 @@ samba-client
 ## --- Gráficos, imagem e vídeo ---
 gimp
 inkscape
-google-cloud-cli                   # gcloud/gsutil (repo oficial do Google)
 
 ## --- Integração com o GNOME ---
 decibels                           # equalizador de áudio
 nautilus-python                    # extensão Python do Nautilus
-nautilus-share                     # compartilhamento de arquivos pelo Nautilus
 grilo-plugins                      # plugins de mídia do GNOME (fotos, vídeos)
 gnome-epub-thumbnailer             # miniaturas de .epub
 ffmpegthumbnailer                  # miniaturas de vídeo
