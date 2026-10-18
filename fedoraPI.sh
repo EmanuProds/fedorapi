@@ -88,11 +88,19 @@ as_user() {
 }
 
 # clone raso de um repo público de dotfiles/scripts; falha dura (é requisito)
+# Com retry e timeout: redes lentas/Instáveis não devem derrubar a instalação.
 clone_repo() {
-  local url="$1" dest="$2"
+  local url="$1" dest="$2" tentativas=3 timeout_seg=120
   rm -rf "$dest"
-  git clone --depth 1 --quiet "$url" "$dest" || die "git clone falhou: $url"
-  ok "clone: $(basename "$dest") <- $url"
+  for i in $(seq 1 "$tentativas"); do
+    if timeout "$timeout_seg" git clone --depth 1 --quiet "$url" "$dest" 2>/dev/null; then
+      ok "clone: $(basename "$dest") <- $url"
+      return 0
+    fi
+    warn "git clone falhou (tentativa $i/$tentativas): $url — aguardando 5s"
+    sleep 5
+  done
+  die "git clone falhou após $tentativas tentativas: $url"
 }
 
 step "Iniciando fedoraPI (Fedora $FDC, log: $LOG)"
