@@ -359,10 +359,14 @@ while IFS= read -r svc; do
 done < <(read_list "$LISTS/services.txt")
 
 # --- dnsmasq como resolvedor local (via NetworkManager) --------------- #
-# O systemd-resolved e o dnsmasq disputam a porta 53: o resolved escuta em
-# 127.0.0.53:53 (stub) e o dnsmasq em 127.0.0.1:53. Desligar o stub listener
-# do resolved libera a porta; o plugin do NetworkManager (dns=dnsmasq) faz o
-# NM escrever /etc/resolv.conf apontando para o dnsmasq.
+# O systemd-resolved e o dnsmasq disputam o /etc/resolv.conf: enquanto o
+# resolved roda, ele reescreve o resolv.conf com os upstreams do link e o
+# dnsmasq (que fica escutando em 127.0.0.1:53) nunca é consultado. A sequência
+# que funciona de fato é:
+#   1. plugin do NM (dns=dnsmasq) — o NM passa a gerenciar o DNS e escreve
+#      127.0.0.1 em /run/NetworkManager/resolv.conf
+#   2. derrubar e mascarar o resolved, senão ele sobrescreve o resolv.conf
+#   3. apontar /etc/resolv.conf para o arquivo do NM
 if rpm_installed dnsmasq; then
   if [ ! -f /etc/NetworkManager/conf.d/00-use-dnsmasq.conf ]; then
     install -d -m 755 /etc/NetworkManager/conf.d
@@ -374,13 +378,6 @@ EOF
   else
     ok "NetworkManager já usa o dnsmasq — pulando"
   fi
-  # resolve o conflito de porta 53
-  install -d -m 755 /etc/systemd/resolved.conf.d
-  cat > /etc/systemd/resolved.conf.d/00-stub-listener.conf <<'EOF'
-[Resolve]
-DNSStubListener=no
-EOF
-  try_warn systemctl restart systemd-resolved
   # configuração do dnsmasq: cache maior e upstream próprio (não lê o
   # /etc/resolv.conf, que aponta para ele mesmo)
   if [ ! -f /etc/NetworkManager/dnsmasq.d/00-fedorapi.conf ]; then
@@ -398,8 +395,29 @@ EOF
   else
     ok "dnsmasq já configurado — pulando"
   fi
-  try_warn systemctl restart dnsmasq
-  ok "dnsmasq ativo como resolvedor local"
+  try_warn systemctl enable --now dnsmasq
+  # o NM só reescreve /run/NetworkManager/resolv.conf depois de reiniciar
+  try_warn systemctl restart NetworkManager
+  # o resolved precisa sair: com ele ativo, o /etc/resolv.conf volta a apontar
+  # para os upstreams do link e o dnsmasq fica órfão escutando em :53
+  if systemctl is-active --quiet systemd-resolved; then
+    try_warn systemctl disable --now systemd-resolved
+    try_warn systemctl mask systemd-resolved
+    ok "systemd-resolved desligado e mascarado (disputava a porta 53 com o dnsmasq)"
+  else
+    ok "systemd-resolved já está fora do caminho — pulando"
+  fi
+  if [ "$(readlink -f /etc/resolv.conf)" != "/run/NetworkManager/resolv.conf" ]; then
+    try_warn ln -sf /run/NetworkManager/resolv.conf /etc/resolv.conf
+    ok "/etc/resolv.conf apontado para o arquivo do NetworkManager"
+  else
+    ok "/etc/resolv.conf já aponta para o NetworkManager — pulando"
+  fi
+  if grep -qx 'nameserver 127.0.0.1' /run/NetworkManager/resolv.conf 2>/dev/null; then
+    ok "dnsmasq é o resolvedor do sistema (resolv.conf -> 127.0.0.1)"
+  else
+    warn "resolv.conf do NM não aponta para 127.0.0.1 — revise o plugin do NetworkManager"
+  fi
 else
   warn "dnsmasq não instalado — resolvedor local não configurado"
 fi
@@ -1000,16 +1018,90 @@ if lspci 2>/dev/null | grep -qiE '10ec:c8(22|2f)'; then
   fi
 fi
 
+# --- grub-btrfs: submenu de snapshots no boot ------------------------ #
+# O grub-btrfs do COPR kylegospo tem dois defeitos no Fedora:
+#   1. o grub-btrfs.path do rpm vem com "Requires=\x2esnapshots.mount" (o
+#      caractere \x2e literal no lugar do ponto), então a unit nunca ativa;
+#   2. o script procura /boot/grub (Arch), mas no Fedora é /boot/grub2 — o
+#      /etc/default/grub-btrfs/config do rpm já corrige esse ponto.
+# Além disso, sem config do snapper não existe snapshot nenhum. A ordem aqui:
+# config do snapper -> snapshot baseline -> path corrigido -> regenera grub.cfg.
+if ! rpm_installed grub-btrfs; then
+  try_warn dnf copr enable -y kylegospo/grub-btrfs
+  try_warn dnf install -y grub-btrfs
+fi
+if rpm_installed grub-btrfs; then
+  if ! snapper list-configs 2>/dev/null | grep -q '^root'; then
+    try_warn snapper create-config /
+    ok "config 'root' do snapper criada (subvolume /)"
+  else
+    ok "config 'root' do snapper já existe — pulando"
+  fi
+  # sem pelo menos um snapshot o submenu sai vazio. A linha "current" é um
+  # pseudo-snapshot do snapper, por isso o filtro.
+  if [ "$(snapper -c root list 2>/dev/null | grep -E 'single|pre|post' | grep -vc current)" -lt 1 ]; then
+    try_warn snapper -c root create --description "baseline fedoraPI.sh" \
+      --cleanup-algorithm number
+    ok "snapshot baseline criado"
+  else
+    ok "snapshots do snapper já existem — pulando"
+  fi
+  # path corrigido: sem o Requires=\x2esnapshots.mount quebrado e sem depender
+  # de /.snapshots.mount, que não existe nesta máquina
+  if [ ! -f /etc/systemd/system/grub-btrfs.path ]; then
+    cat > /etc/systemd/system/grub-btrfs.path <<'EOF'
+[Unit]
+Description=Monitors for new btrfs snapshots (override local do fedoraPI.sh)
+DefaultDependencies=no
+
+[Path]
+PathModified=/.snapshots
+Unit=grub-btrfs.service
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    try_warn systemctl daemon-reload
+    ok "grub-btrfs.path corrigido (o do rpm tem \\x2e no lugar do ponto)"
+  else
+    ok "grub-btrfs.path já corrigido — pulando"
+  fi
+  try_warn systemctl enable --now grub-btrfs.path
+  # regenera o menu com o submenu de snapshots (backup antes, é arquivo crítico)
+  if try_warn cp -a /boot/grub2/grub.cfg "/boot/grub2/grub.cfg.bak-$(date +%Y%m%d-%H%M%S)"; then
+    try_warn grub2-mkconfig -o /boot/grub2/grub.cfg
+  fi
+  if grep -q "submenu 'Fedora Linux snapshots'" /boot/grub2/grub.cfg 2>/dev/null; then
+    ok "submenu 'Fedora Linux snapshots' no menu do GRUB"
+  else
+    warn "grub.cfg sem o submenu de snapshots — revise 'grub2-mkconfig'"
+  fi
+  # com menu_auto_hide=1 o menu some (aparece só em erro), o que esconderia o
+  # submenu de snapshots. No Fedora o comando é 'grub2-editenv - unset NOME':
+  # o - é o nome do arquivo padrão e o comando vem antes dos argumentos.
+  if grub2-editenv list 2>/dev/null | grep -q '^menu_auto_hide='; then
+    try_warn grub2-editenv - unset menu_auto_hide
+    ok "menu_auto_hide removido (menu do GRUB sempre visível)"
+  else
+    ok "menu do GRUB já sempre visível — pulando"
+  fi
+else
+  warn "grub-btrfs não instalado — sem submenu de snapshots"
+fi
+
 # --- Secure Boot: chaves + assinatura do kernel/bootloader ----------- #
-# O sbctl não está no Fedora: vem do COPR chenxiaolong/sbctl. O plugin de
-# assinatura automática para o kernel CachyOS no Fedora vem do COPR
-# hilltty/sbctl-kernel-sign. O que o script faz:
-#   1. instala sbctl + o plugin
-#   2. cria as chaves (se ainda não existirem)
-#   3. assina kernel e GRUB
-#   4. mostra o estado — LIGAR o Secure Boot é um passo manual na BIOS do
-#      Lenovo (o script não pode fazer isso). Se o Secure Boot estiver
-#      desligado, NÃO é erro: o sistema apenas não valida as assinaturas.
+# O sbctl não está no Fedora: vem do COPR chenxiaolong/sbctl. O rpm do sbctl
+# traz de brinde o plugin de kernel-install (/usr/lib/kernel/install.d/91-sbctl.install)
+# e file triggers do rpm — é ele que reassina shim/grub quando um rpm os
+# atualiza (verificado: um 'dnf reinstall grub2-efi-x64 shim-x64' reassinou
+# os 13 binários da ESP sozinho). O que o script faz:
+#   1. instala o sbctl pelo COPR
+#   2. cria as chaves (se ainda não existirem) e enrolled nas variáveis EFI
+#   3. assina cada kernel e cada binário da ESP, gravando no banco do sbctl
+#      (-s) para que os triggers do rpm saibam o que reassinar
+#   4. mostra o estado. LIGAR o Secure Boot é passo manual na BIOS do Lenovo
+#      (o script não alcança o firmware): se estiver desligado NÃO é erro —
+#      o sistema só não está validando as assinaturas.
 if ! command -v sbctl >/dev/null 2>&1; then
   try_warn dnf copr enable -y chenxiaolong/sbctl
   try_warn dnf install -y sbctl
@@ -1021,23 +1113,34 @@ if command -v sbctl >/dev/null 2>&1; then
   else
     ok "chaves do Secure Boot já existem — pulando"
   fi
-  # assina o que houver de kernel e bootloader (idempotente)
+  # grava as chaves nas variáveis EFI; em Setup Mode isso apenas prepara o
+  # firmware. Se a máquina não for EFI (sem /sys/firmware/efi/efivars), pula.
+  if [ -d /sys/firmware/efi/efivars ]; then
+    try_warn sbctl enroll-keys
+    ok "chaves enrolled nas variáveis EFI (Setup Mode agora desativado)"
+  else
+    warn "sem /sys/firmware/efi/efivars — máquina não está em UEFI, chaves não enrolled"
+  fi
+  # assina kernels e ESP (idempotente: o sbctl avisa "already signed" e segue)
   for f in /boot/vmlinuz-*; do
     [ -f "$f" ] || continue
     try_warn sbctl sign -s "$f"
   done
-  for f in /boot/efi/EFI/*/*.efi /boot/efi/BOOT/*.efi; do
+  for f in /boot/efi/EFI/*/*.efi /boot/efi/EFI/*/*.EFI /boot/efi/EFI/BOOT/*.efi; do
     [ -f "$f" ] || continue
     try_warn sbctl sign -s "$f"
   done
-  # o plugin assina automaticamente os kernels novos (COPR do Fedora+CachyOS)
-  if [ ! -f /etc/kernel/install.d/91-sbctl.install ]; then
-    try_warn dnf copr enable -y hilltty/sbctl-kernel-sign
-    try_warn dnf install -y sbctl-kernel-sign
+  unsigned=$(sbctl verify 2>/dev/null | grep -c 'not signed' || true)
+  if [ "${unsigned:-0}" -eq 0 ]; then
+    ok "cadeia de boot inteira assinada (shim -> grub -> kernel)"
+  else
+    warn "$unsigned arquivo(s) da ESP sem assinatura — revise com 'sbctl verify'"
   fi
-  sb_state=$(sbctl status 2>/dev/null | grep -iE 'Secure Boot' | head -1 || true)
-  ok "Secure Boot: $sb_state"
-  if ! sbctl status 2>/dev/null | grep -qi 'Secure Boot.*enabled'; then
+  # 'sbctl status' imprime "Secure Boot:\t✓ Enabled" ou "\t✗ Disabled" — o
+  # ✓ é o único sinal confiável, porque "Disabled" contém "Enabled".
+  sb_line=$(sbctl status 2>/dev/null | grep -E '^Secure Boot' | head -1 || true)
+  ok "Secure Boot: $(printf '%s' "${sb_line:-estado desconhecido}" | tr -s '\t' ' ')"
+  if ! printf '%s' "$sb_line" | grep -q '✓'; then
     warn "Secure Boot continua DESLIGADO — ative na BIOS do Lenovo (Security > Secure Boot) e reinicie"
   fi
 else

@@ -55,9 +55,10 @@ the published latest and there is zero duplication:
    for the Radeon, and `svt-av1-libs` (software AV1 decode for Sunshine)
 5. **Services** — `systemctl enable --now` from `lists/services.txt`; the official
    Tailscale repo is added here first (Fedora has no `tailscale` package, and
-   without it `tailscaled.service` does not exist); `dnsmasq` becomes the local
-   resolver through the NetworkManager plugin (the resolved stub listener is
-   disabled to free port 53)
+   without it `tailscaled.service` does not exist); `dnsmasq` becomes the system
+   resolver through the NetworkManager plugin; `systemd-resolved` is disabled
+   and masked (it kept rewriting `/etc/resolv.conf` with the link upstreams,
+   leaving dnsmasq listening on `127.0.0.1:53` but unused)
 6. **Flatpaks** — Flathub remote + all `flatpak.txt` apps, one `flatpak install`
    per ref (a single ambiguous ref used to abort the whole batch)
 7. **Dotfiles** — `git clone` of `EmanuProds/dotfiles` → `$HOME` + **Plymouth**
@@ -76,7 +77,11 @@ the published latest and there is zero duplication:
     the split-lock bug), BBR3 (`tcp_bbr3` from the CachyOS kernel, `qdisc=fq`),
     TCP MTU probing, `vm.min_free_kbytes` = 1% of RAM (recalculated every
     boot), AMD shader cache raised to 12G, Secure Boot keys + kernel/GRUB
-    signing via `sbctl` (enabling Secure Boot itself is a manual BIOS step)
+    signing via `sbctl` (enabling Secure Boot itself is a manual BIOS step),
+    and `grub-btrfs`: snapper config + baseline snapshot, a fixed
+    `grub-btrfs.path` (the packaged one carries a literal `\x2e` and never
+    activates), regenerated `grub.cfg` and `menu_auto_hide` dropped so the
+    snapshot submenu is reachable
 13. **Runtime phases** — `lists/phases.txt`: GitHub-release `.rpm` (Sunshine,
     PWAsForFirefox), Epic native AppImage, JetBrains Mono Nerd zip, LinuxToys
 
