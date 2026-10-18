@@ -142,7 +142,7 @@ fi
 # instalado existe /etc/yum.repos.d/terra.repo e o dnf recusa criar um segundo
 # repo com o mesmo ID ("o ID esta presente mais de uma vez").
 if rpm -q terra-release >/dev/null 2>&1; then
-  try_warn dnf install -y terra-release terra-gpg-keys
+  ok "terra-release já instalado — pulando"
 else
   # (nota: comentario em linha propria — comentario colado depois da barra
   # invertida quebra a continuacao e o dnf recebe um argumento vazio)
@@ -175,6 +175,7 @@ if [ ! -f /etc/yum.repos.d/docker-ce.repo ]; then
 fi
 
 # O Google descontinuou os repos yum; o mise instala o Cloud SDK (fase 10).
+# coprs/docker-ce/terra/rpmfusion: já guardados acima; silêncio aqui.
 ok "repos prontos"
 
 # --------------------------------------------------------------- #
