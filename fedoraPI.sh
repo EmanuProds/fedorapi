@@ -74,7 +74,7 @@ flatpak_appid() {
 }
 service_enabled() { systemctl is-enabled "$1" >/dev/null 2>&1; }
 command_exists() { command -v "$1" >/dev/null 2>&1; }
-npm_global_installed() { /home/emanuel/.local/bin/mise exec -- npm ls -g --depth=0 2>/dev/null | grep -q " $1@"; }
+npm_global_installed() { "$SUH/.local/bin/mise" exec -- npm ls -g --depth=0 2>/dev/null | grep -q " $1@"; }
 # gopls vem do toolchain do mise (go), não do npm
 gopls_installed() { ls "$SUH/.local/share/mise/installs/go/"*/bin/gopls >/dev/null 2>&1; }
 # executa um comando como o usuário do sudo, com ambiente utilizável (bus da sessão, PATH)
