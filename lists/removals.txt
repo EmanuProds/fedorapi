@@ -4,5 +4,8 @@ gnome-connections
 gnome-contacts
 gnome-tour
 gnome-music
+gnome-boxes
+gnome-maps
+fedora-media-writer
 vim
 libreoffice*

@@ -28,7 +28,6 @@ steam-devices                      # alvos de controle (gamepad, controles remot
 gamemode                           # daemon de otimização para jogos
 gamescope                          # compositor para jogos (Focal/FXAA, VRR)
 mangohud                           # overlay de FPS no Vulkan/OpenGL
-heroic-games-launcher              # COPR atim (Epic/GOG via Legendary)
 
 ## --- Wine e compatibilidade com Windows ---
 wine-core                          # habilita duplo clique em .exe/.msi no Nautilus
@@ -112,3 +111,4 @@ dnf-plugins-core
 ## --- Interface e temas ---
 morewaita-icon-theme               # COPR rivenirvana (ícones extras para o Adwaita)
 starship                           # COPR chronoscrat (prompt do shell)
+resources                          # COPR atim/resources (beta) — monitor de recursos

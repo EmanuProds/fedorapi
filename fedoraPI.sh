@@ -155,8 +155,8 @@ fi
 rpm -q rpmfusion-free-release >/dev/null 2>&1 || dnf install -y "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$FDC.noarch.rpm"
 rpm -q rpmfusion-nonfree-release >/dev/null 2>&1 || dnf install -y "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$FDC.noarch.rpm"
 
-for copr in sneexy/zen-browser atim/heroic-games-launcher \
-            rivenirvana/morewaita-icon-theme chronoscrat/starship \
+for copr in sneexy/zen-browser \
+            rivenirvana/morewaita-icon-theme chronoscrat/starship atim/resources \
             bieszczaders/kernel-cachyos-lto bieszczaders/kernel-cachyos-addons; do
   # idempotência: só habilita se o repo ainda não existir
   repo_file="/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:${copr/\//\:}.repo"
@@ -606,6 +606,124 @@ as_user systemctl --user daemon-reload || true
 for u in accent-sync.path opencode-titlebar-patch.path; do
   try_warn as_user systemctl --user enable --now "$u"
 done
+
+# OpenCode Desktop (app oficial em .rpm, pelo processo do site opencode.ai/download)
+if ! rpm -q opencode-desktop >/dev/null 2>&1; then
+  desk_url=$(curl -fsSL "https://api.github.com/repos/anomalyco/opencode/releases/latest" \
+    | grep -oE '"browser_download_url": *"[^"]+"' | cut -d'"' -f4 \
+    | grep -E 'opencode-desktop-linux-x86_64\.rpm$' | head -1 || true)
+  [ -n "$desk_url" ] && try_warn dnf install -y "$desk_url" \
+    || warn "opencode-desktop: asset .rpm x86_64 não achado no release"
+else
+  ok "opencode-desktop já instalado — pulando"
+fi
+
+# omniroute: gateway de IA. Instala global via npm (mise) e cria unit de usuário
+# que só inicia no próximo login (enable sem --now, por pedido explícito).
+if ! npm_global_installed omniroute; then
+  try_warn as_user "$SUH/.local/bin/mise" exec -- \
+    npm i -g --allow-scripts=omniroute,keytar,onnxruntime-node,@parcel/watcher,@swc/core,protobufjs,esbuild \
+    omniroute
+else
+  ok "omniroute já instalado globalmente — pulando"
+fi
+if [ ! -f "$SUH/.config/systemd/user/omniroute.service" ]; then
+  cat > "$SUH/.config/systemd/user/omniroute.service" <<'EOF'
+[Unit]
+Description=OmniRoute (gateway de IA local)
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/mise/shims/omniroute
+Environment=PORT=20128
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config/systemd/user/omniroute.service"
+  as_user systemctl --user daemon-reload || true
+  # enable SEM --now: fica para o próximo login, não sobe agora
+  try_warn as_user systemctl --user enable omniroute.service
+  ok "omniroute: unit criada e habilitada (inicia no próximo login)"
+fi
+
+# Sunshine: autostart em background e launcher escondido do menu (já é daemon).
+if ! rpm -q sunshine >/dev/null 2>&1; then
+  warn "sunshine ainda não instalado (fase 12 instala o .rpm)"
+else
+  install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.config/autostart"
+  cat > "$SUH/.config/autostart/sunshine.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Sunshine
+Exec=/usr/bin/sunshine
+Icon=video-display
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOF
+  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config/autostart/sunshine.desktop"
+  # esconde o launcher do menu (mantém o serviço/CLI intactos)
+  if [ -f /usr/share/applications/dev.lizardbyte.app.Sunshine.desktop ]; then
+    sed -i '/^NoDisplay=/d' /usr/share/applications/dev.lizardbyte.app.Sunshine.desktop 2>/dev/null || true
+    printf 'NoDisplay=true\n' >> /usr/share/applications/dev.lizardbyte.app.Sunshine.desktop
+  fi
+  ok "sunshine: autostart criado e launcher oculto"
+fi
+
+# Ghostty como terminal padrão + esconde o gnome-terminal do menu.
+if command_exists ghostty; then
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    try_warn as_user update-desktop-database "$SUH/.local/share/applications"
+  fi
+  try_warn dnf install -y xdg-terminal-extras
+  try_warn update-alternatives --install x-gnome-terminal-provider.default x-terminal-emulator \
+    "$SUH/.local/share/applications/com.mitchellh.ghostty.desktop" 40
+  # esconde o terminal antigo, se existir
+  if [ -f /usr/share/applications/org.gnome.Terminal.desktop ]; then
+    sed -i '/^NoDisplay=/d' /usr/share/applications/org.gnome.Terminal.desktop 2>/dev/null || true
+    printf 'NoDisplay=true\n' >> /usr/share/applications/org.gnome.Terminal.desktop
+  fi
+  ok "ghostty: terminal padrão + gnome-terminal oculto"
+else
+  warn "ghostty não está no PATH — terminal padrão não configurado"
+fi
+
+# resources (COPR atim/resources, beta): troca o ícone pelo do gnome-system-monitor,
+# renomeia para "Monitor do sistema" e esconde o gnome-system-monitor original.
+# NOTA: o COPR atim/resources só tem build para fc43 (os builds fc44 falharam),
+# então em fc44 cai no aviso abaixo — o override fica pronto se o COPR voltar.
+if rpm_installed resources; then
+  RES_BIN=$(command -v resources 2>/dev/null || echo /usr/bin/resources)
+  RES_DIR="$SUH/.local/share/applications"
+  install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$RES_DIR"
+  cat > "$RES_DIR/resources.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Monitor do sistema
+Name[en]=System Monitor
+Comment=Monitor de uso de CPU, memória, disco e rede
+Comment[en]=CPU, memory, disk and network usage monitor
+Exec=$RES_BIN
+Icon=org.gnome.SystemMonitor
+Terminal=false
+Categories=System;Monitor;GTK;
+StartupNotify=true
+EOF
+  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$RES_DIR/resources.desktop"
+  if [ -f /usr/share/applications/org.gnome.SystemMonitor.desktop ]; then
+    sed -i '/^NoDisplay=/d' /usr/share/applications/org.gnome.SystemMonitor.desktop 2>/dev/null || true
+    printf 'NoDisplay=true\n' >> /usr/share/applications/org.gnome.SystemMonitor.desktop
+  fi
+  command -v update-desktop-database >/dev/null 2>&1 && try_warn update-desktop-database "$RES_DIR"
+  ok "resources: renomeado para 'Monitor do sistema' + gnome-system-monitor oculto"
+else
+  warn "resources não instalado (COPR atim/resources) — Monitor do sistema não configurado"
+fi
+
 ok "opencode + helpers + units ok (memory.db nasce do zero; migre ~/.opencode/memory.db* do Arch se quiser histórico)"
 
 # --------------------------------------------------------------- #
