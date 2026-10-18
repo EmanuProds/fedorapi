@@ -96,8 +96,8 @@ icoutils                           # ícones dentro de executáveis
 ## --- Arquivos e compactação ---
 file-roller                        # gerenciador de arquivos
 7zip
-p7zip
-p7zip-plugins
+7zip
+7zip-standalone
 unrar                              # RPM Fusion nonfree
 cabextract                         # extrai .cab (pacotes de drivers)
 zip
@@ -105,7 +105,7 @@ zip
 ## --- Desenvolvimento e mobile ---
 android-tools                      # adb/fastboot
 jq                                 # consulta JSON na linha de comando
-wget
+wget2-wget
 git                                # necessário para o clone dos repos de dotfiles/scripts
 dnf-plugins-core
 

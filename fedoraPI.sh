@@ -158,13 +158,21 @@ rpm -q rpmfusion-nonfree-release >/dev/null 2>&1 || dnf install -y "https://mirr
 for copr in sneexy/zen-browser atim/heroic-games-launcher \
             rivenirvana/morewaita-icon-theme chronoscrat/starship \
             bieszczaders/kernel-cachyos-lto bieszczaders/kernel-cachyos-addons; do
+  # idempotência: só habilita se o repo ainda não existir
+  repo_file="/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:${copr/\//\:}.repo"
+  if [ -f "$repo_file" ]; then
+    continue
+  fi
   # retries extras: os coprs hospedam no S3 (lento/timeout) e são o ponto mais
   # frágil da fase 1; o timeout global de 30s não basta para eles.
-  try_warn dnf --setopt=retries=20 copr enable -y "$copr"
+  try_warn dnf --setopt=retries=20 copr enable -y "$copr" >/dev/null 2>&1
 done
 
-try_warn dnf config-manager addrepo --overwrite \
-  --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
+# docker-ce: só adiciona se ainda não existir
+if [ ! -f /etc/yum.repos.d/docker-ce.repo ]; then
+  try_warn dnf config-manager addrepo --overwrite \
+    --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo >/dev/null 2>&1
+fi
 
 # O Google descontinuou os repos yum; o mise instala o Cloud SDK (fase 10).
 ok "repos prontos"
@@ -196,8 +204,9 @@ if [ -s "$LISTS/removals.txt" ]; then
   done
   if [ "${#REMS_A_REMOVER[@]}" -eq 0 ]; then
     ok "bloatware já removido — pulando"
-  elif [ "${#REMS_A_REMOVER[@]}" -gt 0 ]; then
+  else
     try_warn dnf remove -y --setopt=clean_requirements_on_remove=True "${REMS_A_REMOVER[@]}"
+    ok "bloatware removido"
   fi
 fi
 ok "bloatware removido"
@@ -282,8 +291,13 @@ fi
 # O grupo @multimedia puxa libheif-freeworld, que hoje exige libheif 1.23.6 e o
 # Fedora 44 está em 1.23.5 (libheif-ffmpeg): sem excluir, a transação inteira
 # falha e NADA do grupo instala.
-try_warn dnf group install -y multimedia --setopt=install_weak_deps=False \
-  --exclude=PackageKit-gstreamer-plugin,libheif-freeworld
+# idempotência: só instala o grupo se ainda não estiver instalado
+if ! dnf group list --installed 2>/dev/null | grep -q '^multimedia'; then
+  try_warn dnf group install -y multimedia --setopt=install_weak_deps=False \
+    --exclude=PackageKit-gstreamer-plugin,libheif-freeworld
+else
+  ok "grupo multimedia já instalado — pulando"
+fi
 # libva: só instala se faltar
 if ! rpm_installed libva-utils; then
   try_warn dnf install -y libva libva-utils
@@ -386,13 +400,23 @@ fi
 chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.bashrc"
 ok "dotfiles no lugar (bash, ghostty, zed, gamemode, topgrade, watermark)"
 
-# --- plymouth: esconder a watermark e centralizar o spinner (ajuste herdado do Arch; [two-step] é o teste de compatibilidade no 44) --- #
+# --- plymouth: esconder a watermark e centralizar o spinner --- #
+# O tema precisa ser ATIVADO (plymouth-set-default-theme) e o initramfs
+# reconstruído (-R), senão as mudanças no spinner.plymouth não persistem no boot.
+# Centraliza horizontal e verticalmente: HorizontalAlignment=.5 e VerticalAlignment=.5
 SPINNER_CONF="/usr/share/plymouth/themes/spinner/spinner.plymouth"
 if [ -f "$SPINNER_CONF" ] && grep -q '\[two-step\]' "$SPINNER_CONF"; then
   try_warn rm -f /usr/share/plymouth/themes/spinner/watermark.png
-  try_warn sed -i '/\[two-step\]/,/VerticalAlignment/ s/VerticalAlignment=.7/VerticalAlignment=.5/' "$SPINNER_CONF"
+  # ancora no início da linha: evita casar DialogVerticalAlignment/TitleVerticalAlignment
+  if ! grep -q '^VerticalAlignment=.5$' "$SPINNER_CONF"; then
+    try_warn sed -i 's/^VerticalAlignment=.7$/VerticalAlignment=.5/' "$SPINNER_CONF"
+  fi
+  # HorizontalAlignment já é .5 (centro); garante caso tenha mudado
+  try_warn sed -i 's/^HorizontalAlignment=.7$/HorizontalAlignment=.5/' "$SPINNER_CONF"
+  # ativa o tema spinner e reconstrói o initramfs para persistir
+  try_warn plymouth-set-default-theme spinner
   try_warn plymouth-set-default-theme -R spinner
-  ok "plymouth spinner ajustado"
+  ok "plymouth spinner centralizado e ativado"
 else
   warn "spinner.plymouth sem seção [two-step] (tema mudou no 44) — tweak do plymouth ignorado"
 fi
@@ -577,7 +601,8 @@ done < <(read_list "$LISTS/phases.txt")
 # --------------------------------------------------------------- #
 step "Cleanup"
 rm -rf "$CLONES"
-try_warn dnf autoremove -y
+# NÃO rodar 'dnf autoremove -y': remove pacotes opcionais que o usuário usa
+# (ex.: pipewire-codec-aptx/libfreeaptx do fone Bluetooth). O flatpak --unused
+# é seguro (só remove runtimes não referenciados por nenhum app).
 try_warn flatpak uninstall -y --unused --system || true
 ok "concluído — log completo em $LOG"
-ok "lembrete: TODO-verify pendente na máquina real — btrbk (dnf), nomes dos pacotes Terra, kernel default após reboot"
