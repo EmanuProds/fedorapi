@@ -60,6 +60,18 @@ read_list() { grep -vE '^\s*(#|$)' "$1" | sed -e 's/[[:space:]]*#.*$//' -e 's/[[
 # "instalado" aqui significa "presente no sistema", não "já tentado antes".
 rpm_installed() { rpm -q "$1" >/dev/null 2>&1; }
 flatpak_installed() { flatpak list --system --columns=application 2>/dev/null | grep -qx "$1"; }
+# extrai o appID de uma ref flatpak, com ou sem remote/prefixo e branch/arch.
+# Ex.: "flathub/org.freedesktop.Platform.ffmpeg-full/x86_64/24.08" -> "org.freedesktop.Platform.ffmpeg-full"
+#      "org.remmina.Remmina" -> "org.remmina.Remmina"
+flatpak_appid() {
+  local ref="$1"
+  # remove prefixo de remote (primeiro segmento sem ponto: flathub, fedora, oci)
+  case "${ref%%/*}" in
+    flathub|fedora|oci) ref="${ref#*/}" ;;
+  esac
+  # appID é o primeiro componente (antes da primeira /)
+  printf '%s' "${ref%%/*}"
+}
 service_enabled() { systemctl is-enabled "$1" >/dev/null 2>&1; }
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 npm_global_installed() { /home/emanuel/.local/bin/mise exec -- npm ls -g --depth=0 2>/dev/null | grep -q " $1@"; }
@@ -90,6 +102,13 @@ step "Iniciando fedoraPI (Fedora $FDC, log: $LOG)"
 # --------------------------------------------------------------- #
 step "Fase 1/12 — repos de terceiros"
 
+# Limpa transação offline pendente (GNOME Software agenda updates offline; se
+# o script mexer em pacotes antes do reboot, ela fica inválida e o dnf avisa).
+# Só roda se houver algo pendente em /var/lib/dnf/offline.
+if [ -d /var/lib/dnf/offline/packages ] && [ -n "$(ls -A /var/lib/dnf/offline/packages 2>/dev/null)" ]; then
+  try_warn dnf5 offline clean
+fi
+
 # dnf: espelhos e paralelismo. Tem de vir antes do primeiro download — o dnf
 # le /etc/dnf/dnf.conf a cada invocacao, entao tudo que baixa depois ja pega.
 # O dnf.conf do Fedora 44 vem so com "[main]" e nenhuma opcao (conferido nesta
@@ -106,7 +125,6 @@ step "Fase 1/12 — repos de terceiros"
 # setopt sem prefixo de repo grava em [main] e e idempotente (testado no 5.4.6).
 # idempotência: só aplica se alguma chave ainda não estiver no valor esperado
 if grep -q '^max_parallel_downloads=15' /etc/dnf/dnf.conf 2>/dev/null \
-   && grep -q '^max_downloads_per_mirror=15' /etc/dnf/dnf.conf 2>/dev/null \
    && grep -q '^fastestmirror=True' /etc/dnf/dnf.conf 2>/dev/null; then
   ok "dnf: tuning já aplicado (15 paralelos, 15 por mirror, fastestmirror) — pulando"
 else
@@ -140,7 +158,9 @@ rpm -q rpmfusion-nonfree-release >/dev/null 2>&1 || dnf install -y "https://mirr
 for copr in sneexy/zen-browser atim/heroic-games-launcher \
             rivenirvana/morewaita-icon-theme chronoscrat/starship \
             bieszczaders/kernel-cachyos-lto bieszczaders/kernel-cachyos-addons; do
-  try_warn dnf copr enable -y "$copr"
+  # retries extras: os coprs hospedam no S3 (lento/timeout) e são o ponto mais
+  # frágil da fase 1; o timeout global de 30s não basta para eles.
+  try_warn dnf --setopt=retries=20 copr enable -y "$copr"
 done
 
 try_warn dnf config-manager addrepo --overwrite \
@@ -314,8 +334,8 @@ mapfile -t FPKS < <(read_list "$LISTS/flatpak.txt")
 # Forçamos 'flathub/' quando a ref não traz prefixo explícito.
 for app in "${FPKS[@]:-}"; do
   [ -z "$app" ] && continue
-  # idempotência: extrai o appID (sem remote/prefixo) para checar se já está instalado
-  appid="${app##*/}"
+  # idempotência: extrai o appID (sem remote/prefixo/branch) para checar se já está instalado
+  appid="$(flatpak_appid "$app")"
   if flatpak_installed "$appid"; then
     ok "$appid já instalado — pulando"
     continue
@@ -368,9 +388,9 @@ else
 fi
 
 # --------------------------------------------------------------- #
-# 8. DCONF (restauração)  (vem do clone do dotfiles)              #
+# 8. DCONF (restauracao)  (vem do clone do dotfiles)              #
 # --------------------------------------------------------------- #
-step "Fase 8/12 — restaurando GNOME (dconf dump do repo dotfiles)"
+step "Fase 8/12 - restaurando GNOME (dconf dump do repo dotfiles)"
 try_warn as_user dconf load / < "$CLONES/dotfiles/dconf/gnome-settings.ini"
 ok "dconf restaurado"
 
