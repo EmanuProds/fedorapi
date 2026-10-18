@@ -56,6 +56,15 @@ readonly UID_R="$(id -u "$SUDO_USER")"
 
 read_list() { grep -vE '^\s*(#|$)' "$1" | sed -e 's/[[:space:]]*#.*$//' -e 's/[[:space:]]*$//' | grep -vE '^$'; }
 
+# --- helpers de idempotência (verificação de estado real) ---
+# "instalado" aqui significa "presente no sistema", não "já tentado antes".
+rpm_installed() { rpm -q "$1" >/dev/null 2>&1; }
+flatpak_installed() { flatpak list --system --columns=application 2>/dev/null | grep -qx "$1"; }
+service_enabled() { systemctl is-enabled "$1" >/dev/null 2>&1; }
+command_exists() { command -v "$1" >/dev/null 2>&1; }
+npm_global_installed() { /home/emanuel/.local/bin/mise exec -- npm ls -g --depth=0 2>/dev/null | grep -q " $1@"; }
+# gopls vem do toolchain do mise (go), não do npm
+gopls_installed() { ls "$SUH/.local/share/mise/installs/go/"*/bin/gopls >/dev/null 2>&1; }
 # executa um comando como o usuário do sudo, com ambiente utilizável (bus da sessão, PATH)
 as_user() {
   runuser -u "$SUDO_USER" -- env \
@@ -95,13 +104,20 @@ step "Fase 1/12 — repos de terceiros"
 #   max_downloads_per_mirror=15 -> sem isso o teto de 3 POR MIRROR anula o de cima
 #   fastestmirror=True          -> libdnf5 mede latencia e fura a ordem do metalink
 # setopt sem prefixo de repo grava em [main] e e idempotente (testado no 5.4.6).
-for kv in max_parallel_downloads=15 max_downloads_per_mirror=15 fastestmirror=True; do
-  try_warn dnf config-manager setopt "$kv"
-done
-if grep -q '^max_parallel_downloads=15' /etc/dnf/dnf.conf 2>/dev/null; then
-  ok "dnf: 15 downloads paralelos (15 por mirror) + fastestmirror"
+# idempotência: só aplica se alguma chave ainda não estiver no valor esperado
+if grep -q '^max_parallel_downloads=15' /etc/dnf/dnf.conf 2>/dev/null \
+   && grep -q '^max_downloads_per_mirror=15' /etc/dnf/dnf.conf 2>/dev/null \
+   && grep -q '^fastestmirror=True' /etc/dnf/dnf.conf 2>/dev/null; then
+  ok "dnf: tuning já aplicado (15 paralelos, 15 por mirror, fastestmirror) — pulando"
 else
-  warn "dnf.conf nao recebeu o tuning — confira /etc/dnf/dnf.conf"
+  for kv in max_parallel_downloads=15 max_downloads_per_mirror=15 fastestmirror=True; do
+    try_warn dnf config-manager setopt "$kv"
+  done
+  if grep -q '^max_parallel_downloads=15' /etc/dnf/dnf.conf 2>/dev/null; then
+    ok "dnf: 15 downloads paralelos (15 por mirror) + fastestmirror"
+  else
+    warn "dnf.conf nao recebeu o tuning — confira /etc/dnf/dnf.conf"
+  fi
 fi
 
 # O --repofrompath so serve na primeira instalacao: com o terra-release ja
@@ -117,8 +133,9 @@ else
     terra-release terra-gpg-keys
 fi
 
-dnf install -y "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$FDC.noarch.rpm"
-dnf install -y "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$FDC.noarch.rpm"
+# idempotência: só instala os release RPMs se ainda não estiverem presentes
+rpm -q rpmfusion-free-release >/dev/null 2>&1 || dnf install -y "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$FDC.noarch.rpm"
+rpm -q rpmfusion-nonfree-release >/dev/null 2>&1 || dnf install -y "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$FDC.noarch.rpm"
 
 for copr in sneexy/zen-browser atim/heroic-games-launcher \
             rivenirvana/morewaita-icon-theme chronoscrat/starship \
@@ -151,8 +168,16 @@ if [ -s "$LISTS/removals.txt" ]; then
       REMS_EXPANDIDOS+=("$p")
     fi
   done
-  if [ "${#REMS_EXPANDIDOS[@]}" -gt 0 ]; then
-    try_warn dnf remove -y --setopt=clean_requirements_on_remove=True "${REMS_EXPANDIDOS[@]}"
+  # idempotência: só tenta remover o que ainda está instalado
+  REMS_A_REMOVER=()
+  for p in "${REMS_EXPANDIDOS[@]:-}"; do
+    [ -z "$p" ] && continue
+    rpm_installed "$p" && REMS_A_REMOVER+=("$p")
+  done
+  if [ "${#REMS_A_REMOVER[@]}" -eq 0 ]; then
+    ok "bloatware já removido — pulando"
+  elif [ "${#REMS_A_REMOVER[@]}" -gt 0 ]; then
+    try_warn dnf remove -y --setopt=clean_requirements_on_remove=True "${REMS_A_REMOVER[@]}"
   fi
 fi
 ok "bloatware removido"
@@ -163,8 +188,18 @@ ok "bloatware removido"
 step "Fase 3/12 — instalando pacotes (dnf)"
 mapfile -t PKGS < <(read_list "$LISTS/packages.txt")
 [ "${#PKGS[@]}" -gt 0 ] || die "packages.txt vazio"
-dnf install -y "${PKGS[@]}"
-ok "pacotes instalados"
+# idempotência: só instala os que ainda não estão presentes
+PKGS_FALTANDO=()
+for p in "${PKGS[@]:-}"; do
+  [ -z "$p" ] && continue
+  rpm_installed "$p" || PKGS_FALTANDO+=("$p")
+done
+if [ "${#PKGS_FALTANDO[@]}" -eq 0 ]; then
+  ok "pacotes já instalados — pulando"
+else
+  dnf install -y "${PKGS_FALTANDO[@]}"
+  ok "pacotes instalados"
+fi
 
 # --- cola do kernel cachy (comentada linha a linha em candidates) --
 # cachyos-settings fornece/obsoleta o zram-generator-defaults: os dois NAO podem
@@ -202,21 +237,39 @@ _f0=$FAIL_COUNT
 # (libswscale-free/libavcodec-free): sem --allowerasing o dnf5 aborta com
 # "solicitações conflitantes" e o ffmpeg completo não entra (é a recomendação
 # oficial do RPM Fusion Howto/Multimedia).
-try_warn dnf swap -y ffmpeg-free ffmpeg --allowerasing
+# idempotência: só troca se o ffmpeg (RPM Fusion) ainda não estiver instalado
+if ! rpm_installed ffmpeg; then
+  try_warn dnf swap -y ffmpeg-free ffmpeg --allowerasing
+else
+  ok "ffmpeg (RPM Fusion) já instalado — pulando swap"
+fi
 # No Fedora 44 o mesa-va-drivers foi absorvido pelo mesa-dri-drivers: não há mais
 # o que trocar (o "swap" fazia o dnf querer remover o mesa-dri-drivers e o steam
 # derrubava a transação). O -freeworld instala AO LADO — repoquery confirma que
 # ele não declara conflito e só exige libs + mesa-filesystem.
-try_warn dnf install -y mesa-va-drivers-freeworld
+if ! rpm_installed mesa-va-drivers-freeworld; then
+  try_warn dnf install -y mesa-va-drivers-freeworld
+else
+  ok "mesa-va-drivers-freeworld já instalado — pulando"
+fi
 # mesa-vdpau-drivers não existe mais no 44, nem o -freeworld (a troca antiga era
 # letra morta). O equivalente atual para acelerar vídeo é o Vulkan freeworld.
-try_warn dnf swap -y mesa-vulkan-drivers mesa-vulkan-drivers-freeworld --allowerasing
+if ! rpm_installed mesa-vulkan-drivers-freeworld; then
+  try_warn dnf swap -y mesa-vulkan-drivers mesa-vulkan-drivers-freeworld --allowerasing
+else
+  ok "mesa-vulkan-drivers-freeworld já instalado — pulando swap"
+fi
 # O grupo @multimedia puxa libheif-freeworld, que hoje exige libheif 1.23.6 e o
 # Fedora 44 está em 1.23.5 (libheif-ffmpeg): sem excluir, a transação inteira
 # falha e NADA do grupo instala.
 try_warn dnf group install -y multimedia --setopt=install_weak_deps=False \
   --exclude=PackageKit-gstreamer-plugin,libheif-freeworld
-try_warn dnf install -y libva libva-utils
+# libva: só instala se faltar
+if ! rpm_installed libva-utils; then
+  try_warn dnf install -y libva libva-utils
+else
+  ok "libva/libva-utils já instalados — pulando"
+fi
 phase_end "$_f0" "codecs/VA-API prontos"
 
 # --------------------------------------------------------------- #
@@ -234,7 +287,13 @@ if ! command -v tailscale >/dev/null 2>&1; then
   try_warn dnf install -y tailscale
 fi
 while IFS= read -r svc; do
-  try_warn systemctl enable --now "$svc"
+  [ -z "$svc" ] && continue
+  # idempotência: só habilita/inicia se ainda não estiver ativo
+  if service_enabled "$svc"; then
+    ok "$svc já habilitado — pulando"
+  else
+    try_warn systemctl enable --now "$svc"
+  fi
 done < <(read_list "$LISTS/services.txt")
 phase_end "$_f0" "serviços habilitados"
 
@@ -255,6 +314,12 @@ mapfile -t FPKS < <(read_list "$LISTS/flatpak.txt")
 # Forçamos 'flathub/' quando a ref não traz prefixo explícito.
 for app in "${FPKS[@]:-}"; do
   [ -z "$app" ] && continue
+  # idempotência: extrai o appID (sem remote/prefixo) para checar se já está instalado
+  appid="${app##*/}"
+  if flatpak_installed "$appid"; then
+    ok "$appid já instalado — pulando"
+    continue
+  fi
   # já vem com remote? (ex.: flathub/org.foo.Bar)
   case "$app" in
     flathub/*|fedora/*|oci:*)
@@ -354,16 +419,28 @@ if [ -x "$SUH/.local/bin/mise" ]; then
   fi
 fi
 mapfile -t NPMG < <(read_list "$LISTS/npm.txt")
-if [ "${#NPMG[@]}" -gt 0 ]; then
+# idempotência: só instala os LSPs npm que ainda não estiverem globais
+NPMG_FALTANDO=()
+for p in "${NPMG[@]:-}"; do
+  [ -z "$p" ] && continue
+  npm_global_installed "$p" || NPMG_FALTANDO+=("$p")
+done
+if [ "${#NPMG[@]}" -gt 0 ] && [ "${#NPMG_FALTANDO[@]}" -eq 0 ]; then
+  ok "LSPs npm já instalados — pulando"
+elif [ "${#NPMG_FALTANDO[@]}" -gt 0 ]; then
   # via 'mise exec' em vez de 'npm' pelado: não depende de PATH nem de shim, só do
   # config global escrito logo acima. (No run de hoje o PATH apontava para um
   # ~/.local/share/mise/shims que não existia → "env: npm: Arquivo ou diretório
   # inexistente" e nenhum global/LSP foi instalado.)
-  try_warn as_user "$SUH/.local/bin/mise" exec -- npm i -g --silent "${NPMG[@]}"
+  try_warn as_user "$SUH/.local/bin/mise" exec -- npm i -g --silent "${NPMG_FALTANDO[@]}"
 fi
 # gopls: LSP de Go (o mise já instalou o go na fase acima)
 if as_user "$SUH/.local/bin/mise" exec -- go version >/dev/null 2>&1; then
-  try_warn as_user "$SUH/.local/bin/mise" exec -- go install golang.org/x/tools/gopls@latest
+  if gopls_installed; then
+    ok "gopls já instalado — pulando"
+  else
+    try_warn as_user "$SUH/.local/bin/mise" exec -- go install golang.org/x/tools/gopls@latest
+  fi
 fi
 # conclusão de comandos do mise (como no setup do Arch)
 try_warn as_user bash -c 'mkdir -p "$HOME/.local/share/bash-completion/completions" && \
