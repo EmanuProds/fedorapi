@@ -50,4 +50,8 @@ org.nickvision.tubeconverter       # baixa vídeo e áudio da web
 ## --- Temas e runtimes (dependência de outros apps) ---
 org.gtk.Gtk3theme.adw-gtk3         # tema libadwaita portado para GTK3
 org.gtk.Gtk3theme.adw-gtk3-dark    # variante escura do tema GTK3
-org.freedesktop.Platform.ffmpeg-full  # codecs protegidos para edição de vídeo
+# O branch tem que ser explícito: sem /x86_64/24.08 o flatpak aborta o lote
+# inteiro ("Várias refs correspondem a ... no modo não interativo") e nenhum app
+# instalava. 24.08 é o último branch publicado do ffmpeg-full; as plataformas
+# 25.08+ já trazem os codecs no próprio runtime.
+org.freedesktop.Platform.ffmpeg-full/x86_64/24.08  # codecs protegidos para edição de vídeo

@@ -3,7 +3,9 @@
 # Valida o script, as listas e o estado PUBLICADO dos tres repos de origem
 # (dotfiles, accent-sync, opencode-desktop-titlebar).
 set -u
-R="/home/emanuel/Área de trabalho/Projetos/Scripts/fedorapi"
+# raiz do repo descoberta a partir do próprio oracle: o path absoluto antigo
+# ("Área de trabalho/...") não existe mais e reprovava todos os gates
+R="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 DOTFILES="https://github.com/EmanuProds/dotfiles.git"
 ACCENT="https://github.com/EmanuProds/accent-sync.git"
 TITLEBAR="https://github.com/EmanuProds/opencode-desktop-titlebar.git"

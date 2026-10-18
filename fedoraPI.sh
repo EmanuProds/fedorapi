@@ -22,9 +22,29 @@ step() { printf '\n%s== %s ==%s\n'    "$C_BLU" "$*" "$C_OFF"; }
 ok()   { printf '%s[ OK ]%s %s\n'     "$C_GRN" "$C_OFF" "$*"; }
 warn() { printf '%s[WARN]%s %s\n'     "$C_YEL" "$C_OFF" "$*"; }
 die()  { printf '%s[FAIL]%s %s\n' "$C_RED" "$C_OFF" "$*" >&2; exit 1; }
-# executa um passo não-crítico: se falhar, a instalação continua
-try_warn() { "$@" || warn "não-crítico, seguiu em frente: $*"; }
+# executa um passo não-crítico: se falhar, a instalação continua (e a falha entra
+# na contagem, senão a fase imprime [ OK ] com a fase furada — foi o que
+# aconteceu na fase 6: zero flatpaks instalados e "[ OK ] flatpaks instalados")
+FAIL_COUNT=0
+try_warn() { "$@" || { warn "não-crítico, seguiu em frente: $*"; mark_fail; }; }
+mark_fail() { FAIL_COUNT=$((FAIL_COUNT + 1)); }
+# fecha a fase com honestidade: [ OK ] só quando nenhum passo não-crítico falhou
+phase_end() { # phase_end <FAIL_COUNT do início da fase> <texto de sucesso>
+  local antes="$1" texto="$2"
+  if [ "$FAIL_COUNT" -eq "$antes" ]; then
+    ok "$texto"
+  else
+    warn "$((FAIL_COUNT - antes)) passo(s) não-crítico(s) falharam nesta fase — veja o log acima"
+  fi
+}
 
+# /tmp e sticky e o kernel tem fs.protected_regular=1: se o log veio de um run
+# anterior sem sudo ele pertence ao usuario e o tee (mesmo rodando como root)
+# nao consegue abrir com O_CREAT -> "tee: /tmp/fedorapi.log: Permissao negada".
+# Log de root a gente mantem (append); log de outro dono a gente descarta.
+if [ -e "$LOG" ] && [ "$(stat -c '%u' "$LOG" 2>/dev/null || echo 1)" != "0" ]; then
+  rm -f "$LOG"
+fi
 exec > >(tee -a "$LOG") 2>&1
 
 # --- identidade ---------------------------------------------------- #
@@ -67,8 +87,10 @@ step "Fase 1/12 — repos de terceiros"
 if rpm -q terra-release >/dev/null 2>&1; then
   try_warn dnf install -y terra-release terra-gpg-keys
 else
+  # (nota: comentario em linha propria — comentario colado depois da barra
+  # invertida quebra a continuacao e o dnf recebe um argumento vazio)
   dnf install -y --nogpgcheck \
-    --repofrompath "terra,https://repos.fyralabs.com/terra$FDC" \                     # o Google descontinuou os repos yum; o mise instala o SDK
+    --repofrompath "terra,https://repos.fyralabs.com/terra$FDC" \
     terra-release terra-gpg-keys
 fi
 
@@ -84,6 +106,7 @@ done
 try_warn dnf config-manager addrepo --overwrite \
   --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
 
+# O Google descontinuou os repos yum; o mise instala o Cloud SDK (fase 10).
 ok "repos prontos"
 
 # --------------------------------------------------------------- #
@@ -121,8 +144,16 @@ dnf install -y "${PKGS[@]}"
 ok "pacotes instalados"
 
 # --- cola do kernel cachy (comentada linha a linha em candidates) --
-if [ -f /etc/default/zram-generator ] || dnf list --installed zram-generator-defaults >/dev/null 2>&1; then
-  try_warn dnf swap -y zram-generator-defaults cachyos-settings
+# cachyos-settings fornece/obsoleta o zram-generator-defaults: os dois NAO podem
+# entrar no mesmo 'dnf install' (o dnf5 aborta com "solicitações conflitantes"),
+# por isso cachyos-settings saiu de packages.txt e a troca acontece aqui, de
+# forma idempotente.
+if ! rpm -q cachyos-settings >/dev/null 2>&1; then
+  if rpm -q zram-generator-defaults >/dev/null 2>&1; then
+    try_warn dnf swap -y zram-generator-defaults cachyos-settings
+  else
+    try_warn dnf install -y cachyos-settings
+  fi
 fi
 try_warn dracut -f
 try_warn setsebool -P domain_kernel_load_modules on
@@ -140,43 +171,80 @@ else
 fi
 
 # --------------------------------------------------------------- #
-# 4. GRÁFICOS/CODECS (Radeon: VA/VDPAU freeworld + ffmpeg)         #
+# 4. GRÁFICOS/CODECS (Radeon: VA/Vulkan freeworld + ffmpeg)        #
 # --------------------------------------------------------------- #
 step "Fase 4/12 — codecs e aceleração de vídeo"
-try_warn dnf swap -y ffmpeg-free ffmpeg
-try_warn dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld
-try_warn dnf swap -y mesa-vdpau-drivers mesa-vdpau-drivers-freeworld
-try_warn dnf group install -y multimedia --setopt=install_weak_deps=False --exclude=PackageKit-gstreamer-plugin
+_f0=$FAIL_COUNT
+# O ffmpeg do RPM Fusion conflita com as libs "-free" que o Fedora já traz
+# (libswscale-free/libavcodec-free): sem --allowerasing o dnf5 aborta com
+# "solicitações conflitantes" e o ffmpeg completo não entra (é a recomendação
+# oficial do RPM Fusion Howto/Multimedia).
+try_warn dnf swap -y ffmpeg-free ffmpeg --allowerasing
+# No Fedora 44 o mesa-va-drivers foi absorvido pelo mesa-dri-drivers: não há mais
+# o que trocar (o "swap" fazia o dnf querer remover o mesa-dri-drivers e o steam
+# derrubava a transação). O -freeworld instala AO LADO — repoquery confirma que
+# ele não declara conflito e só exige libs + mesa-filesystem.
+try_warn dnf install -y mesa-va-drivers-freeworld
+# mesa-vdpau-drivers não existe mais no 44, nem o -freeworld (a troca antiga era
+# letra morta). O equivalente atual para acelerar vídeo é o Vulkan freeworld.
+try_warn dnf swap -y mesa-vulkan-drivers mesa-vulkan-drivers-freeworld --allowerasing
+# O grupo @multimedia puxa libheif-freeworld, que hoje exige libheif 1.23.6 e o
+# Fedora 44 está em 1.23.5 (libheif-ffmpeg): sem excluir, a transação inteira
+# falha e NADA do grupo instala.
+try_warn dnf group install -y multimedia --setopt=install_weak_deps=False \
+  --exclude=PackageKit-gstreamer-plugin,libheif-freeworld
 try_warn dnf install -y libva libva-utils
-ok "codecs/VA-API prontos"
+phase_end "$_f0" "codecs/VA-API prontos"
 
 # --------------------------------------------------------------- #
 # 5. SERVIÇOS                                                      #
 # --------------------------------------------------------------- #
 step "Fase 5/12 — serviços systemd"
+_f0=$FAIL_COUNT
+# O tailscaled.service está em services.txt mas o tailscale não existe em nenhum
+# repo do Fedora: sem instalar o pacote antes, o "enable --now" abaixo falha com
+# "Failed to enable unit: Unit tailscaled.service does not exist" (log de hoje).
+# Repo oficial do upstream, com repo_gpgcheck ligado.
+if ! command -v tailscale >/dev/null 2>&1; then
+  try_warn dnf config-manager addrepo --overwrite \
+    --from-repofile=https://pkgs.tailscale.com/stable/fedora/tailscale.repo
+  try_warn dnf install -y tailscale
+fi
 while IFS= read -r svc; do
   try_warn systemctl enable --now "$svc"
 done < <(read_list "$LISTS/services.txt")
-ok "serviços habilitados"
+phase_end "$_f0" "serviços habilitados"
 
 # --------------------------------------------------------------- #
 # 6. FLATPAKS                                                       #
 # --------------------------------------------------------------- #
 step "Fase 6/12 — Flathub + flatpaks"
+_f0=$FAIL_COUNT
 command -v flatpak >/dev/null 2>&1 || dnf install -y flatpak
 try_warn flatpak remote-add --system --if-not-exists flathub \
   https://dl.flathub.org/repo/flathub.flatpakrepo
 mapfile -t FPKS < <(read_list "$LISTS/flatpak.txt")
-if [ "${#FPKS[@]}" -gt 0 ]; then
-  try_warn flatpak install -y --system --noninteractive "${FPKS[@]}"
-fi
-ok "flatpaks instalados"
+# Um ref por chamada: um ref ruim aborta a transação INTEIRA. Foi o que o
+# ffmpeg-full sem branch fez ("Várias refs correspondem...") — nenhum dos 32 apps
+# instalou e a fase ainda imprimia [ OK ].
+for app in "${FPKS[@]:-}"; do
+  [ -z "$app" ] && continue
+  try_warn flatpak install -y --system --noninteractive "$app"
+done
+phase_end "$_f0" "flatpaks instalados (${#FPKS[@]} refs)"
 
 # --------------------------------------------------------------- #
 # 7. DOTFILES    (clone do repo dotfiles — fonte única)           #
 # --------------------------------------------------------------- #
 step "Fase 7/12 — dotfiles (clone EmanuProds/dotfiles)"
 clone_repo "$DOTFILES_REPO" "$CLONES/dotfiles"
+# ~/.config precisa PERTENCER ao usuário. Se um run anterior deixou a pasta como
+# root (ou se o cp -a cria a pasta copiando o dono do clone), tudo que grava
+# config de usuário quebra: foi o que derrubou o gcloud ("Could not create
+# directory [/home/emanuel/.config/gcloud]: Permission denied"), o mise (sem
+# poder escrever ~/.config/mise/config.toml não cria shims → npm/go sumiram) e o
+# ~/.config/systemd. O chown -R no fim desta fase fecha o buraco de vez.
+install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.config"
 install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
   "$CLONES/dotfiles/home/.bashrc" "$SUH/.bashrc"
 install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
@@ -184,9 +252,8 @@ install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
 install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
   "$CLONES/dotfiles/home/gdm/watermark.png" "$SUH/.config/watermark.png"
 cp -a "$CLONES/dotfiles/home/.config/." "$SUH/.config/"
-chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config/ghostty" "$SUH/.config/zed" \
-  "$SUH/.config/gamemode.ini" "$SUH/.config/topgrade.toml" "$SUH/.config/watermark.png" \
-  "$SUH/.bashrc" "$SUH/.shell_aliases" 2>/dev/null || true
+chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" \
+  "$SUH/.config" "$SUH/.bashrc" "$SUH/.shell_aliases" 2>/dev/null || true
 ok "dotfiles no lugar (bash, ghostty, zed, gamemode, topgrade, watermark)"
 
 # --- plymouth: esconder a watermark e centralizar o spinner (ajuste herdado do Arch; [two-step] é o teste de compatibilidade no 44) --- #
@@ -210,43 +277,63 @@ ok "dconf restaurado"
 # --------------------------------------------------------------- #
 # 9. EXTENSÕES DO GNOME  (D-Bus: InstallRemoteExtension)          #
 # --------------------------------------------------------------- #
-step "Fase 9/12 — extensões GNOME (19 UUIDs)"
-ext_fail=0
-while IFS= read -r uuid; do
-  if ! as_user dbus-send --session --print-reply \
-       --dest=org.gnome.Shell.Extensions \
-       /org/gnome/Shell/Extensions \
-       org.gnome.Shell.Extensions.InstallRemoteExtension string:"$uuid" >/dev/null 2>&1; then
-    ext_fail=$((ext_fail + 1))
-    warn "extensão falhou/não achou na loja: $uuid"
+mapfile -t EXT_UUIDS < <(read_list "$LISTS/extensions.txt")
+step "Fase 9/12 — extensões GNOME (${#EXT_UUIDS[@]} UUIDs)"
+_f0=$FAIL_COUNT
+EXT_DIR="$SUH/.local/share/gnome-shell/extensions"
+for uuid in "${EXT_UUIDS[@]:-}"; do
+  [ -z "$uuid" ] && continue
+  [ -d "$EXT_DIR/$uuid" ] && continue   # já veio de um run anterior
+  # O exit code do dbus-send MENTE: o org.gnome.Shell.Extensions é ativado a cada
+  # chamada, o gnome-shell extrai o zip e o serviço sai sem responder — o cliente
+  # recebe "NoReply: Remote peer disconnected" mesmo com a extensão instalada.
+  # (No run de hoje: 16 de 19 instalaram e o script contou 18 falhas.)
+  as_user dbus-send --session --print-reply \
+    --dest=org.gnome.Shell.Extensions \
+    /org/gnome/Shell/Extensions \
+    org.gnome.Shell.Extensions.InstallRemoteExtension string:"$uuid" >/dev/null 2>&1 || true
+  # o download/extração é assíncrono: o veredito vem do disco, não do D-Bus
+  for _ in $(seq 1 20); do
+    [ -d "$EXT_DIR/$uuid" ] && break
+    sleep 1
+  done
+  if [ ! -d "$EXT_DIR/$uuid" ]; then
+    mark_fail
+    warn "extensão não instalou (UUID existe na loja?): $uuid"
   fi
-done < <(read_list "$LISTS/extensions.txt")
-[ "$ext_fail" -eq 0 ] && ok "todas as extensões instaladas" \
-  || warn "$ext_fail extensão(ões) pendentes — D-Bus precisa da sessão GNOME ativa; instale via Extension Manager se faltar"
+done
+phase_end "$_f0" "extensões do GNOME instaladas (${#EXT_UUIDS[@]})"
 
 # --------------------------------------------------------------- #
 # 10. MISE + GLOBAIS DO NPM + LSP DE GO                            #
 # --------------------------------------------------------------- #
 step "Fase 10/12 — mise (node/bun/go/usage/pipx/gh) + LSPs npm"
+_f0=$FAIL_COUNT
 as_user bash -c 'curl -fsSL https://mise.run | sh' || warn "mise.run falhou"
 if [ -x "$SUH/.local/bin/mise" ]; then
   mapfile -t TOOLS < <(read_list "$LISTS/mise.txt")
   if [ "${#TOOLS[@]}" -gt 0 ]; then
-    as_user "$SUH/.local/bin/mise" use -g "${TOOLS[@]}" || true
+    # grava ~/.config/mise/config.toml e cria os shims em ~/.local/share/mise/shims
+    # (depende do ~/.config ser do usuário — garantido na fase 7)
+    try_warn as_user "$SUH/.local/bin/mise" use -g "${TOOLS[@]}"
   fi
 fi
 mapfile -t NPMG < <(read_list "$LISTS/npm.txt")
 if [ "${#NPMG[@]}" -gt 0 ]; then
-  as_user npm i -g --silent "${NPMG[@]}" || warn "npm -g parcial"
+  # via 'mise exec' em vez de 'npm' pelado: não depende de PATH nem de shim, só do
+  # config global escrito logo acima. (No run de hoje o PATH apontava para um
+  # ~/.local/share/mise/shims que não existia → "env: npm: Arquivo ou diretório
+  # inexistente" e nenhum global/LSP foi instalado.)
+  try_warn as_user "$SUH/.local/bin/mise" exec -- npm i -g --silent "${NPMG[@]}"
 fi
 # gopls: LSP de Go (o mise já instalou o go na fase acima)
-if as_user bash -c 'command -v go >/dev/null'; then
-  try_warn as_user bash -c 'go install golang.org/x/tools/gopls@latest'
+if as_user "$SUH/.local/bin/mise" exec -- go version >/dev/null 2>&1; then
+  try_warn as_user "$SUH/.local/bin/mise" exec -- go install golang.org/x/tools/gopls@latest
 fi
 # conclusão de comandos do mise (como no setup do Arch)
 try_warn as_user bash -c 'mkdir -p "$HOME/.local/share/bash-completion/completions" && \
   mise completion bash --include-bash-completion-lib > "$HOME/.local/share/bash-completion/completions/mise"'
-ok "toolchains prontos"
+phase_end "$_f0" "toolchains prontos"
 
 # --------------------------------------------------------------- #
 # 11. OPENCODE + SCRIPTS AUXILIARES (tudo clonado dos repos)       #
@@ -265,8 +352,9 @@ done
 install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.agents"
 install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.agents/skills"
 cp -a "$CLONES/dotfiles/skills/." "$SUH/.agents/skills/"
-chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config/opencode" "$SUH/.agents"
-as_user npm install --silent --prefix "$SUH/.config/opencode" || warn "npm opencode parcial"
+chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config" "$SUH/.agents"
+as_user "$SUH/.local/bin/mise" exec -- npm install --silent --prefix "$SUH/.config/opencode" \
+  || warn "npm opencode parcial"
 
 # auxiliares + units: um repo por script
 clone_repo "$ACCENT_SYNC_REPO" "$CLONES/accent-sync"

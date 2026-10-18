@@ -44,15 +44,24 @@ the published latest and there is zero duplication:
    CachyOS glue: zram swap (`cachyos-settings`), `dracut -f`, SELinux bool
    `domain_kernel_load_modules`, dnf5 `.actions` keeping the newest `cachy`
    kernel as boot default (Fedora kernel stays as backup)
-4. **Graphics/codecs** — ffmpeg + mesa VA/VDPAU `freeworld` swaps, `@multimedia`
-   group, `libva(-utils)` for the Radeon
-5. **Services** — `systemctl enable --now` from `lists/services.txt`
-6. **Flatpaks** — Flathub remote + all `flatpak.txt` apps
+4. **Graphics/codecs** — `ffmpeg` swap with `--allowerasing`, `mesa-va-drivers-freeworld`
+   + `mesa-vulkan-drivers-freeworld` (Fedora 44 folded VA/VDPAU into
+   `mesa-dri-drivers`, so only Vulkan is swapped), `@multimedia` group minus
+   `libheif-freeworld` (RPM Fusion lag against Fedora updates), `libva(-utils)`
+   for the Radeon
+5. **Services** — `systemctl enable --now` from `lists/services.txt`; the official
+   Tailscale repo is added here first (Fedora has no `tailscale` package, and
+   without it `tailscaled.service` does not exist)
+6. **Flatpaks** — Flathub remote + all `flatpak.txt` apps, one `flatpak install`
+   per ref (a single ambiguous ref used to abort the whole batch)
 7. **Dotfiles** — `git clone` of `EmanuProds/dotfiles` → `$HOME` + **Plymouth**
    spinner tweaks (watermark removal + `VerticalAlignment`)
 8. **dconf** — GNOME settings restore from the clone
-9. **Extensions** — 19 UUIDs via D-Bus `InstallRemoteExtension` (pipx-free)
-10. **Toolchains** — mise (node/bun/go/usage/pipx/gh) + npm LSPs + completions
+9. **Extensions** — 17 UUIDs via D-Bus `InstallRemoteExtension` (pipx-free);
+   success is decided by the extension folder on disk, because the D-Bus reply
+   is lost when the extensions service exits
+10. **Toolchains** — mise (node/bun/go/usage/pipx/gh) + npm LSPs + completions;
+    npm/go are called through `mise exec`, not through shims on `PATH`
 11. **OpenCode + helpers** — skeleton → `~/.config/opencode` + `npm install`;
     `accent-sync` and titlebar patch helpers → `~/.local/bin` with their user
     units enabled (memory.db is created fresh; migrate `~/.opencode/memory.db*`

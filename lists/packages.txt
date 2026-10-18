@@ -1,7 +1,10 @@
 ## --- Kernel e otimizações CachyOS (COPR bieszczaders) ---
+## cachyos-settings fica FORA daqui de propósito: ele fornece/obsoleta o
+## zram-generator-defaults e o dnf5 aborta o 'dnf install' quando os dois caem
+## na mesma transação ("solicitações conflitantes"). A troca é feita pelo
+## próprio script, na fase 3 (bloco "cola do kernel cachy").
 kernel-cachyos-lto                  # kernel BORE 1000 Hz + ThinLTO + NTSync + sched-ext (x86-64-v3 ✓ no 5500U)
 kernel-cachyos-lto-devel-matched    # headers do kernel, para compilar módulos DK
-cachyos-settings                   # sysctl/modprobe/udev do CachyOS (troca o zram-generator-defaults)
 scx-scheds                         # schedulers do sched-ext
 scx-tools                          # scxctl/scx_loader (controle dos schedulers)
 scx-manager                        # interface gráfica dos schedulers

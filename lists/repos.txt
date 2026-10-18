@@ -22,4 +22,7 @@ sudo dnf config-manager addrepo --from-repofile=https://download.docker.com/linu
 ## SELinux: setsebool -P domain_kernel_load_modules on
 
 ## Outros
-curl -fsSL https://tailscale.com/install.sh | sh            # tailscaled (serviço vem de services.txt)
+## Tailscale: sem pacote nos repos do Fedora. O repo oficial é adicionado na
+## fase 5 (antes do 'enable --now' do tailscaled.service) — repo_gpgcheck ligado.
+sudo dnf config-manager addrepo --from-repofile=https://pkgs.tailscale.com/stable/fedora/tailscale.repo
+sudo dnf install tailscale                                    # tailscaled (serviço vem de services.txt)
