@@ -81,6 +81,29 @@ step "Iniciando fedoraPI (Fedora $FDC, log: $LOG)"
 # --------------------------------------------------------------- #
 step "Fase 1/12 — repos de terceiros"
 
+# dnf: espelhos e paralelismo. Tem de vir antes do primeiro download — o dnf
+# le /etc/dnf/dnf.conf a cada invocacao, entao tudo que baixa depois ja pega.
+# O dnf.conf do Fedora 44 vem so com "[main]" e nenhuma opcao (conferido nesta
+# maquina): sem tuning o dnf5 baixa 3 pacotes por vez, no maximo 3 por mirror,
+# e escolhe o mirror na ordem do metalink. Foi o que apareceu na fase 4 de
+# 2026-10-17: o rpmfusion entregou mirror da America Central/Europa, o
+# ffmpeg-libs caiu para 29 KiB/s e cada pacote grande levou ~5 min, com varios
+# "Curl error (28): Timeout was reached ... Less than 1000 bytes/sec transferred
+# the last 30 seconds" — isso e o minrate do dnf largando o mirror lento, nao um
+# travamento (a transacao seguia viva, trocando de espelho).
+#   max_parallel_downloads=15   -> 15 downloads simultaneos (teto do dnf5 e 20)
+#   max_downloads_per_mirror=15 -> sem isso o teto de 3 POR MIRROR anula o de cima
+#   fastestmirror=True          -> libdnf5 mede latencia e fura a ordem do metalink
+# setopt sem prefixo de repo grava em [main] e e idempotente (testado no 5.4.6).
+for kv in max_parallel_downloads=15 max_downloads_per_mirror=15 fastestmirror=True; do
+  try_warn dnf config-manager setopt "$kv"
+done
+if grep -q '^max_parallel_downloads=15' /etc/dnf/dnf.conf 2>/dev/null; then
+  ok "dnf: 15 downloads paralelos (15 por mirror) + fastestmirror"
+else
+  warn "dnf.conf nao recebeu o tuning — confira /etc/dnf/dnf.conf"
+fi
+
 # O --repofrompath so serve na primeira instalacao: com o terra-release ja
 # instalado existe /etc/yum.repos.d/terra.repo e o dnf recusa criar um segundo
 # repo com o mesmo ID ("o ID esta presente mais de uma vez").
