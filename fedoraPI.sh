@@ -621,9 +621,13 @@ fi
 # omniroute: gateway de IA. Instala global via npm (mise) e cria unit de usuário
 # que só inicia no próximo login (enable sem --now, por pedido explícito).
 if ! npm_global_installed omniroute; then
-  try_warn as_user "$SUH/.local/bin/mise" exec -- \
-    npm i -g --allow-scripts=omniroute,keytar,onnxruntime-node,@parcel/watcher,@swc/core,protobufjs,esbuild \
-    omniroute
+  # O npm global do mise fica no prefixo dele; o shim (que cria o comando no PATH)
+  # só é regenerado por 'mise reshim' — e o wrapper do npm chama 'mise' por nome,
+  # então o mise precisa estar no PATH para o reshim rodar.
+  try_warn as_user bash -c 'export PATH="$HOME/.local/bin:$PATH"; \
+    "$HOME/.local/bin/mise" exec -- npm i -g \
+      --allow-scripts=omniroute,keytar,onnxruntime-node,@parcel/watcher,@swc/core,protobufjs,esbuild \
+      omniroute && "$HOME/.local/bin/mise" reshim'
 else
   ok "omniroute já instalado globalmente — pulando"
 fi
@@ -694,8 +698,8 @@ fi
 
 # resources (COPR atim/resources, beta): troca o ícone pelo do gnome-system-monitor,
 # renomeia para "Monitor do sistema" e esconde o gnome-system-monitor original.
-# NOTA: o COPR atim/resources só tem build para fc43 (os builds fc44 falharam),
-# então em fc44 cai no aviso abaixo — o override fica pronto se o COPR voltar.
+# O gnome-system-monitor precisa ficar escondido: a extensão "Resources" usa o
+# mesmo appID e não funciona se houver dois launchers com o mesmo nome visível.
 if rpm_installed resources; then
   RES_BIN=$(command -v resources 2>/dev/null || echo /usr/bin/resources)
   RES_DIR="$SUH/.local/share/applications"
