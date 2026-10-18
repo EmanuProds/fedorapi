@@ -4,5 +4,5 @@ pyright
 typescript-language-server
 yaml-language-server
 marksman
-@postgrestools/postgres-language-server
+@postgres-language-server/cli
 gh-actions-language-server   # GitHub Actions LSP (wrapper do @actions/languageserver)
