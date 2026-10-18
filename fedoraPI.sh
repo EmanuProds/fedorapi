@@ -529,17 +529,27 @@ clone_repo "$TITLEBAR_REPO" "$CLONES/titlebar"
 # Adwaita Colors: gera variantes do tema de ícones (Adwaita-blue, -teal, ...)
 # que seguem a cor de destaque do GNOME; trabalha em conjunto com o MoreWaita.
 # Requer o MoreWaita instalado (pacote morewaita-icon-theme, Fase 3).
+# idempotência: só reinstala se alguma variante estiver faltando OU se o
+# MoreWaita ainda não estiver na cadeia Inherits (integração não aplicada).
+needs_ac=0
 if [ ! -d "$SUH/.local/share/icons/Adwaita-blue" ] && [ ! -d "/usr/share/icons/Adwaita-blue" ]; then
+  needs_ac=1
+elif ! grep -q 'MoreWaita' "$SUH/.local/share/icons/Adwaita-teal/index.theme" 2>/dev/null; then
+  needs_ac=1
+fi
+if [ "$needs_ac" -eq 1 ]; then
   clone_repo "https://github.com/dpejoh/Adwaita-colors" "$CLONES/adwaita-colors"
-  # instala system-wide (precisa de root, que é quem roda o script)
+  # instala (user dir por padrão; com -g seria system-wide)
   if [ -x "$CLONES/adwaita-colors/setup" ]; then
     try_warn "$CLONES/adwaita-colors/setup" -i -f
     # integra o MoreWaita (gera as pastas coloridas para os ícones extras)
     [ -x "$CLONES/adwaita-colors/morewaita.sh" ] && try_warn bash "$CLONES/adwaita-colors/morewaita.sh"
+    # atualiza o cache de ícones para o GNOME/Tweaks enxergarem as variantes
+    try_warn gtk-update-icon-cache -f "$SUH/.local/share/icons/Adwaita-teal"
     ok "adwaita-colors instalado (variantes por cor de destaque)"
   fi
 else
-  ok "adwaita-colors já instalado — pulando"
+  ok "adwaita-colors já instalado e integrado — pulando"
 fi
 install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
   "$CLONES/accent-sync/accent-sync" "$SUH/.local/bin/accent-sync"
