@@ -366,6 +366,38 @@ for app in "${FPKS[@]:-}"; do
   esac
   try_warn flatpak install -y --system --noninteractive "$target"
 done
+
+# adw-gtk3 como tema GTK padrao. Duas vias complementares, ambas oficiais do
+# upstream (lassekongo83/adw-gtk3):
+#   1) flatpak: as extensoes Gtk3theme do Flathub sao lidas pelo
+#      xdg-desktop-portal-gtk do host, que ja pega o nome em
+#      org.gnome.desktop.interface gtk-theme. Nao usamos
+#      'flatpak override --filesystem=xdg-data/themes' porque o upstream diz
+#      para escolher UMA das duas vias, e a do Flathub e a que cobre os apps
+#      GTK3 sem precisar mascarar as extensoes.
+#   2) nativo: o rpm adw-gtk3 (instalado na fase 3) põe /usr/share/themes/
+#      adw-gtk3{,-dark} no disco — é de lá que o accent-sync copia para
+#      ~/.local/share/themes, caminho que os flatpaks enxergam.
+for t in adw-gtk3 adw-gtk3-dark; do
+  if flatpak_installed "org.gtk.Gtk3theme.$t"; then
+    ok "tema flatpak $t já instalado — pulando"
+  else
+    try_warn flatpak install -y --system --noninteractive "flathub/org.gtk.Gtk3theme.$t"
+  fi
+done
+# O nome do tema segue o color-scheme: quem troca light/dark no painel do GNOME
+# continua coerente. O accent-sync cuida so do accent (e da copia dos temas),
+# entao esta e a unica vez que o gtk-theme precisa ser escrito.
+if as_user gsettings get org.gnome.desktop.interface color-scheme | grep -q prefer-dark; then
+  as_user gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3-dark'
+else
+  as_user gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3'
+fi
+# Faz o accent-sync copiar agora os temas pro ~/.local/share/themes (ele so
+# recopia quando a assinatura do rpm muda; numa install nova nunca rodou).
+if [ -x "$SUH/.local/bin/accent-sync" ]; then
+  try_warn as_user "$SUH/.local/bin/accent-sync"
+fi
 phase_end "$_f0" "flatpaks instalados (${#FPKS[@]} refs)"
 
 # --------------------------------------------------------------- #
