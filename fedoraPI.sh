@@ -1463,3 +1463,127 @@ rm -rf "$CLONES"
 # é seguro (só remove runtimes não referenciados por nenhum app).
 try_warn flatpak uninstall -y --unused --system || true
 ok "concluído — log completo em $LOG"
+
+# --------------------------------------------------------------- #
+# RESTAURAÇÃO DE BACKUPS (zip em ~/Downloads/backups/)            #
+# --------------------------------------------------------------- #
+step "Restauração de backups (~/Downloads/backups/)"
+BACKUP_DIR="$SUH/Downloads/backups"
+if [ ! -d "$BACKUP_DIR" ]; then
+  ok "pasta $BACKUP_DIR não existe — pulando"
+else
+  shopt -s nullglob
+  for zip in "$BACKUP_DIR"/*.zip; do
+    [ -f "$zip" ] || continue
+    base=$(basename "$zip" .zip)
+    echo
+    echo "=== Processando: $base ==="
+
+    # Extrai para temp
+    tmpd=$(mktemp -d -t "bkp-$base-XXXXXX")
+    if ! unzip -q "$zip" -d "$tmpd"; then
+      warn "falha ao extrair $zip"
+      rm -rf "$tmpd"
+      continue
+    fi
+
+    # Detecta estrutura: pasta única ou arquivos na raiz
+    entries=("$tmpd"/*)
+    if [ ${#entries[@]} -eq 1 ] && [ -d "${entries[0]}" ]; then
+      # Pasta única — entra nela
+      workdir="${entries[0]}"
+    else
+      # Arquivos/pastas soltos na raiz
+      workdir="$tmpd"
+    fi
+
+    # Lista itens (pastas e arquivos) para seleção
+    mapfile -t items < <(find "$workdir" -mindepth 1 -maxdepth 1 -print0 | xargs -0 -n1 basename | sort)
+    if [ ${#items[@]} -eq 0 ]; then
+      warn "zip vazio: $zip"
+      rm -rf "$tmpd"
+      continue
+    fi
+
+    echo "Itens em $base:"
+    for i in "${!items[@]}"; do
+      item_path="$workdir/${items[i]}"
+      if [ -d "$item_path" ]; then
+        count=$(find "$item_path" -type f | wc -l)
+        printf "  [%2d] %s/  (%d arquivos)\n" $((i+1)) "${items[i]}" "$count"
+      else
+        printf "  [%2d] %s\n" $((i+1)) "${items[i]}"
+      fi
+    done
+
+    # Seleção estilo checkbox (números separados por espaço)
+    echo -n "Escolha itens para restaurar (ex.: 1 3 5, Enter=todos, q=pular): "
+    read -r sel
+    if [[ "$sel" =~ ^[qQ]$ ]]; then
+      echo "Pulando $zip"
+      rm -rf "$tmpd"
+      continue
+    fi
+
+    chosen=()
+    if [ -z "$sel" ]; then
+      # Enter = todos
+      chosen=("${items[@]}")
+    else
+      for num in $sel; do
+        if [[ "$num" =~ ^[0-9]+$ ]] && [ "$num" -ge 1 ] && [ "$num" -le ${#items[@]} ]; then
+          chosen+=("${items[num-1]}")
+        else
+          warn "número inválido: $num (ignorado)"
+        fi
+      done
+    fi
+
+    if [ ${#chosen[@]} -eq 0 ]; then
+      echo "Nenhum item selecionado — pulando $zip"
+      rm -rf "$tmpd"
+      continue
+    fi
+
+    # Para cada item escolhido: pergunta destino (usa pasta do zip como sugestão)
+    for item in "${chosen[@]}"; do
+      src="$workdir/$item"
+      if [ ! -e "$src" ]; then
+        warn "não encontrado: $src"
+        continue
+      fi
+
+      # Sugestão de destino baseada no nome do item
+      if [ -d "$src" ]; then
+        suggested="$SUH/$item"
+      else
+        suggested="$SUH/$(basename "$item")"
+      fi
+
+      echo -n "Destino para '$item' [$suggested]: "
+      read -r dest
+      dest="${dest:-$suggested}"
+      dest="${dest/#\~/$SUH}"
+
+      # Cria diretório pai se necessário
+      mkdir -p "$(dirname "$dest")"
+
+      # Move (usa rsync para preservar atributos e mostrar progresso)
+      echo "Movendo $item -> $dest"
+      if rsync -a --info=progress2 "$src/" "$dest/" 2>/dev/null || rsync -a "$src/" "$dest/"; then
+        ok "restaurado: $item -> $dest"
+      else
+        warn "falha ao mover $item"
+      fi
+    done
+
+    # Remove o zip original
+    rm -f "$zip"
+    ok "zip $zip removido"
+
+    # Limpa temp
+    rm -rf "$tmpd"
+  done
+  shopt -u nullglob
+fi
+ok "restauração de backups concluída"
