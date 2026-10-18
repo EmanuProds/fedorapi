@@ -5,7 +5,7 @@
 #   zip      | nome | URL de download                   | destino da descompactação
 #   sh       | nome | URL do script de instalação      | -
 #
-# Estas fases rodam no fim do script (fase 12/12).
+# Estas fases rodam no fim do script (fase 13/13).
 
 # Sunshine: .rpm oficial do upstream para fc44 (não se autatualiza pelo dnf;
 # o topgrade pode buscar o rpm novo depois)

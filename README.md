@@ -37,21 +37,27 @@ the published latest and there is zero duplication:
 
 ## Phases
 
-1. **Repos** — Terra, RPM Fusion (free/nonfree), 6 COPRs (incl. CachyOS
-   `bieszczaders/*`), Docker CE repo, Google Cloud SDK repo file
+1. **Repos** — Terra, RPM Fusion (free/nonfree), 7 COPRs (incl. CachyOS
+   `bieszczaders/*` and `atim/lazydocker`), Docker CE repo, Google Cloud SDK
+   repo file
 2. **Bloatware** — `dnf remove` of `lists/removals.txt`
 3. **Packages** — one `dnf install` of `lists/packages.txt`; afterwards the
    CachyOS glue: zram swap (`cachyos-settings`), `dracut -f`, SELinux bool
    `domain_kernel_load_modules`, dnf5 `.actions` keeping the newest `cachy`
-   kernel as boot default (Fedora kernel stays as backup)
+   kernel as boot default (Fedora kernel stays as backup), plus the
+   virtualization stack (`virt-manager` + libvirt + `qemu-kvm`, since
+   `gnome-boxes` is removed as bloatware), `lazydocker` and the Microsoft
+   core fonts
 4. **Graphics/codecs** — `ffmpeg` swap with `--allowerasing`, `mesa-va-drivers-freeworld`
    + `mesa-vulkan-drivers-freeworld` (Fedora 44 folded VA/VDPAU into
    `mesa-dri-drivers`, so only Vulkan is swapped), `@multimedia` group minus
    `libheif-freeworld` (RPM Fusion lag against Fedora updates), `libva(-utils)`
-   for the Radeon
+   for the Radeon, and `libsvtav1` (software AV1 decode for Sunshine)
 5. **Services** — `systemctl enable --now` from `lists/services.txt`; the official
    Tailscale repo is added here first (Fedora has no `tailscale` package, and
-   without it `tailscaled.service` does not exist)
+   without it `tailscaled.service` does not exist); `dnsmasq` becomes the local
+   resolver through the NetworkManager plugin (the resolved stub listener is
+   disabled to free port 53)
 6. **Flatpaks** — Flathub remote + all `flatpak.txt` apps, one `flatpak install`
    per ref (a single ambiguous ref used to abort the whole batch)
 7. **Dotfiles** — `git clone` of `EmanuProds/dotfiles` → `$HOME` + **Plymouth**
@@ -66,7 +72,12 @@ the published latest and there is zero duplication:
     `accent-sync` and titlebar patch helpers → `~/.local/bin` with their user
     units enabled (memory.db is created fresh; migrate `~/.opencode/memory.db*`
     from Arch if history is wanted)
-12. **Runtime phases** — `lists/phases.txt`: GitHub-release `.rpm` (Sunshine,
+12. **Kernel/system tuning** — `split_lock_detect=off` (the 5500U is affected by
+    the split-lock bug), BBR3 (`tcp_bbr3` from the CachyOS kernel, `qdisc=fq`),
+    TCP MTU probing, `vm.min_free_kbytes` = 1% of RAM (recalculated every
+    boot), AMD shader cache raised to 12G, Secure Boot keys + kernel/GRUB
+    signing via `sbctl` (enabling Secure Boot itself is a manual BIOS step)
+13. **Runtime phases** — `lists/phases.txt`: GitHub-release `.rpm` (Sunshine,
     PWAsForFirefox), Epic native AppImage, JetBrains Mono Nerd zip, LinuxToys
 
 ## Kernel / CachyOS parity

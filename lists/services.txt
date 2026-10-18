@@ -1,5 +1,5 @@
 # services.txt — unidades systemd habilitadas com --now depois da instalação
-# dos pacotes (fase 5/12 do fedoraPI.sh).
+# dos pacotes (fase 5/13 do fedoraPI.sh).
 docker.service
 docker.socket
 cups.service

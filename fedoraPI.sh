@@ -100,7 +100,7 @@ step "Iniciando fedoraPI (Fedora $FDC, log: $LOG)"
 # --------------------------------------------------------------- #
 # 1. REPOS      terra + rpmfusion + coprs + docker-ce + google    #
 # --------------------------------------------------------------- #
-step "Fase 1/12 — repos de terceiros"
+step "Fase 1/13 — repos de terceiros"
 
 # Limpa transação offline pendente (GNOME Software agenda updates offline; se
 # o script mexer em pacotes antes do reboot, ela fica inválida e o dnf avisa).
@@ -157,6 +157,7 @@ rpm -q rpmfusion-nonfree-release >/dev/null 2>&1 || dnf install -y "https://mirr
 
 for copr in sneexy/zen-browser \
             rivenirvana/morewaita-icon-theme chronoscrat/starship atim/resources \
+            atim/lazydocker \
             bieszczaders/kernel-cachyos-lto bieszczaders/kernel-cachyos-addons; do
   # idempotência: só habilita se o repo ainda não existir
   repo_file="/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:${copr/\//\:}.repo"
@@ -181,7 +182,7 @@ ok "repos prontos"
 # --------------------------------------------------------------- #
 # 2. LIMPEZA DO SISTEMA (bloatware)                                #
 # --------------------------------------------------------------- #
-step "Fase 2/12 — removendo bloatware pré-instalado"
+step "Fase 2/13 — removendo bloatware pré-instalado"
 if [ -s "$LISTS/removals.txt" ]; then
   mapfile -t REMS < <(read_list "$LISTS/removals.txt")
   # o dnf nao expande curingas: 'libreoffice*' seria tratado como nome literal.
@@ -215,7 +216,7 @@ ok "bloatware removido"
 # --------------------------------------------------------------- #
 # 3. PACOTES                                                       #
 # --------------------------------------------------------------- #
-step "Fase 3/12 — instalando pacotes (dnf)"
+step "Fase 3/13 — instalando pacotes (dnf)"
 mapfile -t PKGS < <(read_list "$LISTS/packages.txt")
 [ "${#PKGS[@]}" -gt 0 ] || die "packages.txt vazio"
 # idempotência: só instala os que ainda não estão presentes
@@ -229,6 +230,31 @@ if [ "${#PKGS_FALTANDO[@]}" -eq 0 ]; then
 else
   dnf install -y "${PKGS_FALTANDO[@]}"
   ok "pacotes instalados"
+fi
+
+# --- virtualização (virt-manager) ------------------------------------ #
+# O gnome-boxes foi removido como bloatware, então o stack de virtualização
+# (libvirt + qemu-kvm) precisa vir por conta própria. KVM exige /dev/kvm e
+# CPU com virtualização (a 5500U tem AMD-V).
+if ! rpm_installed virt-manager; then
+  try_warn dnf install -y virt-manager libvirt-daemon-driver-qemu \
+    libvirt-client-qemu qemu-kvm virt-install
+  ok "virt-manager + libvirt + qemu-kvm instalados"
+else
+  ok "virt-manager já instalado — pulando"
+fi
+# lazydocker: TUI para docker (COPR atim/lazydocker, habilitado na fase 1)
+if ! rpm_installed lazydocker; then
+  try_warn dnf install -y lazydocker
+else
+  ok "lazydocker já instalado — pulando"
+fi
+# Microsoft Core Fonts: o instalador baixa as fontes da Microsoft e exige
+# aceite de EULA (rpm --nodeps). Vem do RPM Fusion nonfree.
+if ! rpm_installed ttf-mscorefonts-installer; then
+  try_warn dnf install -y ttf-mscorefonts-installer
+else
+  ok "ttf-mscorefonts-installer já instalado — pulando"
 fi
 
 # --- cola do kernel cachy (comentada linha a linha em candidates) --
@@ -261,7 +287,7 @@ fi
 # --------------------------------------------------------------- #
 # 4. GRÁFICOS/CODECS (Radeon: VA/Vulkan freeworld + ffmpeg)        #
 # --------------------------------------------------------------- #
-step "Fase 4/12 — codecs e aceleração de vídeo"
+step "Fase 4/13 — codecs e aceleração de vídeo"
 _f0=$FAIL_COUNT
 # O ffmpeg do RPM Fusion conflita com as libs "-free" que o Fedora já traz
 # (libswscale-free/libavcodec-free): sem --allowerasing o dnf5 aborta com
@@ -305,12 +331,19 @@ if ! rpm_installed libva-utils; then
 else
   ok "libva/libva-utils já instalados — pulando"
 fi
+# libsvtav1: decodificação de AV1 por software (o hardware do 5500U não tem
+# decoder AV1). É o que o Sunshine precisa para enviar vídeo AV1.
+if ! rpm_installed libsvtav1; then
+  try_warn dnf install -y libsvtav1
+else
+  ok "libsvtav1 (AV1) já instalado — pulando"
+fi
 phase_end "$_f0" "codecs/VA-API prontos"
 
 # --------------------------------------------------------------- #
 # 5. SERVIÇOS                                                      #
 # --------------------------------------------------------------- #
-step "Fase 5/12 — serviços systemd"
+step "Fase 5/13 — serviços systemd"
 _f0=$FAIL_COUNT
 # O tailscaled.service está em services.txt mas o tailscale não existe em nenhum
 # repo do Fedora: sem instalar o pacote antes, o "enable --now" abaixo falha com
@@ -330,12 +363,58 @@ while IFS= read -r svc; do
     try_warn systemctl enable --now "$svc"
   fi
 done < <(read_list "$LISTS/services.txt")
+
+# --- dnsmasq como resolvedor local (via NetworkManager) --------------- #
+# O systemd-resolved e o dnsmasq disputam a porta 53: o resolved escuta em
+# 127.0.0.53:53 (stub) e o dnsmasq em 127.0.0.1:53. Desligar o stub listener
+# do resolved libera a porta; o plugin do NetworkManager (dns=dnsmasq) faz o
+# NM escrever /etc/resolv.conf apontando para o dnsmasq.
+if rpm_installed dnsmasq; then
+  if [ ! -f /etc/NetworkManager/conf.d/00-use-dnsmasq.conf ]; then
+    install -d -m 755 /etc/NetworkManager/conf.d
+    cat > /etc/NetworkManager/conf.d/00-use-dnsmasq.conf <<'EOF'
+[main]
+dns=dnsmasq
+EOF
+    ok "NetworkManager configurado para usar o dnsmasq"
+  else
+    ok "NetworkManager já usa o dnsmasq — pulando"
+  fi
+  # resolve o conflito de porta 53
+  install -d -m 755 /etc/systemd/resolved.conf.d
+  cat > /etc/systemd/resolved.conf.d/00-stub-listener.conf <<'EOF'
+[Resolve]
+DNSStubListener=no
+EOF
+  try_warn systemctl restart systemd-resolved
+  # configuração do dnsmasq: cache maior e upstream próprio (não lê o
+  # /etc/resolv.conf, que aponta para ele mesmo)
+  if [ ! -f /etc/NetworkManager/dnsmasq.d/00-fedorapi.conf ]; then
+    install -d -m 755 /etc/NetworkManager/dnsmasq.d
+    cat > /etc/NetworkManager/dnsmasq.d/00-fedorapi.conf <<'EOF'
+# Upstream próprio: o /etc/resolv.conf aponta para o dnsmasq, então não pode
+# ser lido por ele (loop).
+no-resolv
+server=1.1.1.1
+server=9.9.9.9
+server=8.8.8.8
+cache-size=1500
+EOF
+    ok "dnsmasq: cache 1500 e upstream Cloudflare/Quad9/Google"
+  else
+    ok "dnsmasq já configurado — pulando"
+  fi
+  try_warn systemctl restart dnsmasq
+  ok "dnsmasq ativo como resolvedor local"
+else
+  warn "dnsmasq não instalado — resolvedor local não configurado"
+fi
 phase_end "$_f0" "serviços habilitados"
 
 # --------------------------------------------------------------- #
 # 6. FLATPAKS                                                       #
 # --------------------------------------------------------------- #
-step "Fase 6/12 — Flathub + flatpaks"
+step "Fase 6/13 — Flathub + flatpaks"
 _f0=$FAIL_COUNT
 command -v flatpak >/dev/null 2>&1 || dnf install -y flatpak
 try_warn flatpak remote-add --system --if-not-exists flathub \
@@ -403,7 +482,7 @@ phase_end "$_f0" "flatpaks instalados (${#FPKS[@]} refs)"
 # --------------------------------------------------------------- #
 # 7. DOTFILES    (clone do repo dotfiles — fonte única)           #
 # --------------------------------------------------------------- #
-step "Fase 7/12 — dotfiles (clone EmanuProds/dotfiles)"
+step "Fase 7/13 — dotfiles (clone EmanuProds/dotfiles)"
 clone_repo "$DOTFILES_REPO" "$CLONES/dotfiles"
 # ~/.config precisa PERTENCER ao usuário. Se um run anterior deixou a pasta como
 # root (ou se o cp -a cria a pasta copiando o dono do clone), tudo que grava
@@ -498,7 +577,7 @@ fi
 # --------------------------------------------------------------- #
 # 8. DCONF (restauracao)  (vem do clone do dotfiles)              #
 # --------------------------------------------------------------- #
-step "Fase 8/12 - restaurando GNOME (dconf dump do repo dotfiles)"
+step "Fase 8/13 - restaurando GNOME (dconf dump do repo dotfiles)"
 try_warn as_user dconf load / < "$CLONES/dotfiles/dconf/gnome-settings.ini"
 
 # App Folders do GNOME: agrupa apps no overview por categoria (estilo Arch/CachyOS).
@@ -549,7 +628,7 @@ ok "dconf restaurado"
 # 9. EXTENSÕES DO GNOME  (D-Bus: InstallRemoteExtension)          #
 # --------------------------------------------------------------- #
 mapfile -t EXT_UUIDS < <(read_list "$LISTS/extensions.txt")
-step "Fase 9/12 — extensões GNOME (${#EXT_UUIDS[@]} UUIDs)"
+step "Fase 9/13 — extensões GNOME (${#EXT_UUIDS[@]} UUIDs)"
 _f0=$FAIL_COUNT
 EXT_DIR="$SUH/.local/share/gnome-shell/extensions"
 for uuid in "${EXT_UUIDS[@]:-}"; do
@@ -578,7 +657,7 @@ phase_end "$_f0" "extensões do GNOME instaladas (${#EXT_UUIDS[@]})"
 # --------------------------------------------------------------- #
 # 10. MISE + GLOBAIS DO NPM + LSP DE GO                            #
 # --------------------------------------------------------------- #
-step "Fase 10/12 — mise (node/bun/go/usage/pipx/gh) + LSPs npm"
+step "Fase 10/13 — mise (node/bun/go/usage/pipx/gh) + LSPs npm"
 _f0=$FAIL_COUNT
 as_user bash -c 'curl -fsSL https://mise.run | sh' || warn "mise.run falhou"
 if [ -x "$SUH/.local/bin/mise" ]; then
@@ -621,7 +700,7 @@ phase_end "$_f0" "toolchains prontos"
 # --------------------------------------------------------------- #
 # 11. OPENCODE + SCRIPTS AUXILIARES (tudo clonado dos repos)       #
 # --------------------------------------------------------------- #
-step "Fase 11/12 — opencode (do dotfiles) + accent-sync/titlebar (repos próprios)"
+step "Fase 11/13 — opencode (do dotfiles) + accent-sync/titlebar (repos próprios)"
 
 # esqueleto do opencode: config sanitizada + comandos + plugin de memória
 for d in commands plugins tests; do
@@ -727,9 +806,11 @@ EOF
   ok "omniroute: unit criada e habilitada (inicia no próximo login)"
 fi
 
-# Sunshine: autostart em background e launcher escondido do menu (já é daemon).
-if ! rpm -q sunshine >/dev/null 2>&1; then
-  warn "sunshine ainda não instalado (fase 12 instala o .rpm)"
+# Sunshine: autostart em background, launcher escondido e config criada.
+# O pacote do upstream chama-se "Sunshine" (S maiúsculo) — por isso o teste
+# do rpm não pode ser por "sunshine".
+if ! rpm_installed Sunshine; then
+  warn "Sunshine ainda não instalado (fase 13 instala o .rpm)"
 else
   install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.config/autostart"
   cat > "$SUH/.config/autostart/sunshine.desktop" <<EOF
@@ -748,7 +829,27 @@ EOF
     sed -i '/^NoDisplay=/d' /usr/share/applications/dev.lizardbyte.app.Sunshine.desktop 2>/dev/null || true
     printf 'NoDisplay=true\n' >> /usr/share/applications/dev.lizardbyte.app.Sunshine.desktop
   fi
-  ok "sunshine: autostart criado e launcher oculto"
+  # configuração: o Sunshine sem config não sobe (falta credencial/porta).
+  # A senha e o usuário ficam com placeholders — troque antes de usar.
+  if [ ! -f /etc/sunshine/sunshine.conf ]; then
+    install -d -m 755 /etc/sunshine
+    cat > /etc/sunshine/sunshine.conf <<'EOF'
+# Sunshine — game streaming (gerado pelo fedoraPI.sh)
+# TROQUE a senha e o usuário abaixo antes de usar.
+port = 47989
+address = 0.0.0.0
+sunshine_username = eumanu
+sunshine_password = TROQUE_ESTA_SENHA
+upnp = disabled
+pkey = /etc/sunshine/sunshine.pem
+log_path = /var/log/sunshine.log
+EOF
+    chmod 600 /etc/sunshine/sunshine.conf
+    ok "sunshine: /etc/sunshine/sunshine.conf criado (ajuste a senha!)"
+  else
+    ok "sunshine: config já existe — pulando"
+  fi
+  ok "sunshine: autostart criado, launcher oculto e config pronta"
 fi
 
 # Ghostty como terminal padrão + esconde o gnome-terminal do menu.
@@ -789,9 +890,158 @@ fi
 ok "opencode + helpers + units ok (memory.db nasce do zero; migre ~/.opencode/memory.db* do Arch se quiser histórico)"
 
 # --------------------------------------------------------------- #
-# 12. FASES DE RUNTIME (rpm do gh / AppImage / zip / curl|sh)     #
+# 12. TUNING DE KERNEL E SISTEMA (performance + secure boot)       #
 # --------------------------------------------------------------- #
-step "Fase 12/12 — fases pós-dnf (phases.txt runtime)"
+step "Fase 12/13 — tuning de kernel e sistema"
+_f0=$FAIL_COUNT
+
+# --- split-lock: desativa a mitigação do bug de split-lock --------- #
+# O Ryzen 5 5500U é afetado pelo bug: a mitigação (split_lock_detect)
+# desativa o mitigation bus lock, o que custa ~5-10% em jogos com
+# muitos threads. O CachyOS usa o param de kernel 'split_lock_detect=off'.
+if grubby --info=ALL 2>/dev/null | grep -q 'split_lock_detect=off'; then
+  ok "split_lock_detect=off já no cmdline — pulando"
+else
+  try_warn grubby --update-kernel=ALL --args="split_lock_detect=off"
+  ok "split_lock_detect=off aplicado (reboot necessário)"
+fi
+
+# --- BBR3 + MTU probing + min_free_kbytes ---------------------------- #
+# BBR3: o kernel CachyOS traz o módulo tcp_bbr3 (nome do algoritmo 'bbr3',
+# não 'bbr'). Exige qdisc=fq. MTU probing: PMTU black hole em redes PPP/
+# VPN. min_free_kbytes: 1% da RAM total, recalculado a cada boot (assim
+# acompanha upgrade/downgrade de RAM) — a mesma ideia do free_mem_fix do
+# LinuxToys.
+install -d -m 755 /etc/sysctl.d
+cat > /etc/sysctl.d/90-fedorapi-tuning.conf <<'EOF'
+# --- BBR3 (kernel CachyOS) ---
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr3
+# --- MTU probing (recupera de PMTU black hole em VPN/PPP) ---
+net.ipv4.tcp_mtu_probing = 1
+EOF
+# carrega o módulo e o algoritmo agora (vale já para a sessão atual)
+modprobe tcp_bbr3 2>/dev/null || true
+try_warn sysctl --system
+if [ "$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null)" = "bbr3" ]; then
+  ok "BBR3 ativo + MTU probing ligado"
+else
+  warn "BBR3 não ficou como congestion control (o módulo carregou? $(ls /lib/modules/$(uname -r)/kernel/net/ipv4/tcp_bbr3.ko.zst 2>/dev/null | wc -l) arquivo(s) encontrado(s))"
+fi
+
+# vm.min_free_kbytes = 1% da RAM, recalculado a cada boot
+if [ ! -f /etc/systemd/system/set-min-free-mem.service ]; then
+  cat > /etc/systemd/system/set-min-free-mem.service <<'EOF'
+[Unit]
+Description=Define vm.min_free_kbytes como 1% da RAM total
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c "sysctl -w vm.min_free_kbytes=$(awk '/MemTotal/ {printf \"%.0f\", $2 * 0.01}' /proc/meminfo)"
+
+[Install]
+WantedBy=sysinit.target
+EOF
+  try_warn systemctl daemon-reload
+  try_warn systemctl enable set-min-free-mem.service
+fi
+try_warn systemctl start set-min-free-mem.service
+ok "min_free_kbytes = 1% da RAM ($(awk '/MemTotal/ {printf \"%.0f\", $2 * 0.01}' /proc/meminfo) kB)"
+
+# --- cache de shader (AMD/RADV) -------------------------------------- #
+# A GPU é a iGPU Radeon do 5500U, então vale o par AMD do shader-booster:
+# MESA_SHADER_CACHE_MAX_SIZE limita o tamanho do cache (12G) e AMD_VULKAN_ICD
+# força o RADV. Sem isso, shaders são recompilados a cada boot.
+if grep -q 'MESA_SHADER_CACHE_MAX_SIZE' /etc/environment 2>/dev/null; then
+  ok "cache de shader já configurado — pulando"
+else
+  if ! grep -q '^AMD_VULKAN_ICD=' /etc/environment 2>/dev/null; then
+    printf 'AMD_VULKAN_ICD=RADV\n' >> /etc/environment
+  fi
+  if ! grep -q '^MESA_SHADER_CACHE_MAX_SIZE=' /etc/environment 2>/dev/null; then
+    printf 'MESA_SHADER_CACHE_MAX_SIZE=12G\n' >> /etc/environment
+  fi
+  ok "cache de shader AMD ampliado para 12G (reboot necessário)"
+fi
+
+# --- ananicy-cpp: regras do CachyOS ---------------------------------- #
+if rpm_installed ananicy-cpp; then
+  if [ -d /etc/ananicy.d/00-default ]; then
+    ok "ananicy-cpp com regras do CachyOS ativas"
+  else
+    warn "ananicy-cpp instalado mas sem regras em /etc/ananicy.d/00-default"
+  fi
+else
+  warn "ananicy-cpp não instalado"
+fi
+
+# --- WiFi Realtek: confere o driver em uso ----------------------------- #
+# A placa é a RTL8822CE (PCI 10ec:c822) — NÃO é a 8821CE. O 8822CE tem
+# suporte nativo no kernel (rtw88_8822ce, desde o 5.2), então não é preciso
+# nenhum driver externo. Se o módulo não estiver carregado, carrega.
+if lspci 2>/dev/null | grep -qiE '10ec:c8(22|2f)'; then
+  if ! lsmod | grep -q '^rtw88_8822ce'; then
+    try_warn modprobe rtw88_8822ce
+  fi
+  if lsmod | grep -q '^rtw88_8822ce'; then
+    ok "WiFi Realtek 8822CE: driver nativo rtw88_8822ce carregado (sem DKMS)"
+  else
+    warn "WiFi 8822CE detectado mas o rtw88_8822ce não carregou — verifique o firmware"
+  fi
+fi
+
+# --- Secure Boot: chaves + assinatura do kernel/bootloader ----------- #
+# O sbctl não está no Fedora: vem do COPR chenxiaolong/sbctl. O plugin de
+# assinatura automática para o kernel CachyOS no Fedora vem do COPR
+# hilltty/sbctl-kernel-sign. O que o script faz:
+#   1. instala sbctl + o plugin
+#   2. cria as chaves (se ainda não existirem)
+#   3. assina kernel e GRUB
+#   4. mostra o estado — LIGAR o Secure Boot é um passo manual na BIOS do
+#      Lenovo (o script não pode fazer isso). Se o Secure Boot estiver
+#      desligado, NÃO é erro: o sistema apenas não valida as assinaturas.
+if ! command -v sbctl >/dev/null 2>&1; then
+  try_warn dnf copr enable -y chenxiaolong/sbctl
+  try_warn dnf install -y sbctl
+fi
+if command -v sbctl >/dev/null 2>&1; then
+  if [ ! -f /var/lib/sbctl/keys/db/db.pem ]; then
+    try_warn sbctl create-keys
+    ok "chaves do Secure Boot criadas"
+  else
+    ok "chaves do Secure Boot já existem — pulando"
+  fi
+  # assina o que houver de kernel e bootloader (idempotente)
+  for f in /boot/vmlinuz-*; do
+    [ -f "$f" ] || continue
+    try_warn sbctl sign -s "$f"
+  done
+  for f in /boot/efi/EFI/*/*.efi /boot/efi/BOOT/*.efi; do
+    [ -f "$f" ] || continue
+    try_warn sbctl sign -s "$f"
+  done
+  # o plugin assina automaticamente os kernels novos (COPR do Fedora+CachyOS)
+  if [ ! -f /etc/kernel/install.d/91-sbctl.install ]; then
+    try_warn dnf copr enable -y hilltty/sbctl-kernel-sign
+    try_warn dnf install -y sbctl-kernel-sign
+  fi
+  sb_state=$(sbctl status 2>/dev/null | grep -iE 'Secure Boot' | head -1 || true)
+  ok "Secure Boot: $sb_state"
+  if ! sbctl status 2>/dev/null | grep -qi 'Secure Boot.*enabled'; then
+    warn "Secure Boot continua DESLIGADO — ative na BIOS do Lenovo (Security > Secure Boot) e reinicie"
+  fi
+else
+  warn "sbctl não instalado — Secure Boot não configurado (veja o log acima)"
+fi
+phase_end "$_f0" "tuning de kernel aplicado"
+
+# --------------------------------------------------------------- #
+# 13. FASES DE RUNTIME (rpm do gh / AppImage / zip / curl|sh)     #
+# --------------------------------------------------------------- #
+step "Fase 13/13 — fases pós-dnf (phases.txt runtime)"
 while IFS='|' read -r kind name url extra; do
   case "$kind" in
     rpm)
