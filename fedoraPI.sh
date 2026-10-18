@@ -427,6 +427,49 @@ fi
 # --------------------------------------------------------------- #
 step "Fase 8/12 - restaurando GNOME (dconf dump do repo dotfiles)"
 try_warn as_user dconf load / < "$CLONES/dotfiles/dconf/gnome-settings.ini"
+
+# App Folders do GNOME: agrupa apps no overview por categoria (estilo Arch/CachyOS).
+# Configuração por usuário via gsettings (idempotente: reescreve a lista completa).
+AF="org.gnome.desktop.app-folders"
+ASF="org.gnome.desktop.app-folders.folder:/org/gnome/desktop/app-folders/folders"
+try_warn as_user gsettings set "$AF" folder-children \
+  "['Escritorio', 'Editores', 'Utilitarios', 'Ferramentas', 'Sistema', 'Jogos', 'Wine']"
+
+# Escritório (Office)
+try_warn as_user gsettings set "$ASF/Escritorio/" name 'Office.directory'
+try_warn as_user gsettings set "$ASF/Escritorio/" translate true
+try_warn as_user gsettings set "$ASF/Escritorio/" categories "['Office']"
+
+# Editores (Development + TextEditor)
+try_warn as_user gsettings set "$ASF/Editores/" name 'Editores'
+try_warn as_user gsettings set "$ASF/Editores/" translate false
+try_warn as_user gsettings set "$ASF/Editores/" categories "['Development', 'TextEditor']"
+
+# Utilitários
+try_warn as_user gsettings set "$ASF/Utilitarios/" name 'Utilities.directory'
+try_warn as_user gsettings set "$ASF/Utilitarios/" translate true
+try_warn as_user gsettings set "$ASF/Utilitarios/" categories "['Utility', 'X-GNOME-Utilities']"
+
+# Ferramentas
+try_warn as_user gsettings set "$ASF/Ferramentas/" name 'Ferramentas'
+try_warn as_user gsettings set "$ASF/Ferramentas/" translate false
+try_warn as_user gsettings set "$ASF/Ferramentas/" categories "['System', 'Settings']"
+
+# Sistema
+try_warn as_user gsettings set "$ASF/Sistema/" name 'Sistema'
+try_warn as_user gsettings set "$ASF/Sistema/" translate false
+try_warn as_user gsettings set "$ASF/Sistema/" categories "['X-GNOME-SystemSettings']"
+
+# Jogos
+try_warn as_user gsettings set "$ASF/Jogos/" name 'Game.directory'
+try_warn as_user gsettings set "$ASF/Jogos/" translate true
+try_warn as_user gsettings set "$ASF/Jogos/" categories "['Game']"
+
+# Wine
+try_warn as_user gsettings set "$ASF/Wine/" name 'Wine.directory'
+try_warn as_user gsettings set "$ASF/Wine/" translate true
+try_warn as_user gsettings set "$ASF/Wine/" categories "['Wine', 'X-Wine']"
+
 ok "dconf restaurado"
 
 # --------------------------------------------------------------- #
