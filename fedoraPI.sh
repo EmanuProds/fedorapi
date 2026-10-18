@@ -250,9 +250,21 @@ mapfile -t FPKS < <(read_list "$LISTS/flatpak.txt")
 # Um ref por chamada: um ref ruim aborta a transação INTEIRA. Foi o que o
 # ffmpeg-full sem branch fez ("Várias refs correspondem...") — nenhum dos 32 apps
 # instalou e a fase ainda imprimia [ OK ].
+# Fedora também tem alguns apps no remote 'fedora' (OCI). Quando o appID existe
+# em ambos (remmina, flatseal, calibre...), flatpak pede para escolher remote.
+# Forçamos 'flathub/' quando a ref não traz prefixo explícito.
 for app in "${FPKS[@]:-}"; do
   [ -z "$app" ] && continue
-  try_warn flatpak install -y --system --noninteractive "$app"
+  # já vem com remote? (ex.: flathub/org.foo.Bar)
+  case "$app" in
+    flathub/*|fedora/*|oci:*)
+      target="$app"
+      ;;
+    *)
+      target="flathub/$app"
+      ;;
+  esac
+  try_warn flatpak install -y --system --noninteractive "$target"
 done
 phase_end "$_f0" "flatpaks instalados (${#FPKS[@]} refs)"
 
