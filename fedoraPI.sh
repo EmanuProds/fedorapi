@@ -225,11 +225,44 @@ for p in "${PKGS[@]:-}"; do
   [ -z "$p" ] && continue
   rpm_installed "$p" || PKGS_FALTANDO+=("$p")
 done
+
+# Um nome inexistente no repositório aborta a transação INTEIRA — foi o que
+# aconteceu com "adw-gtk3" (o pacote se chama adw-gtk3-theme). Antes de
+# instalar, separe o que o dnf realmente resolve e reporte o resto como aviso,
+# em vez de perder todos os outros pacotes da lista. Uma única chamada de
+# repoquery para a lista toda: um por pacote deixaria a fase lenta demais.
+if [ "${#PKGS_FALTANDO[@]}" -gt 0 ]; then
+  mapfile -t _resolvidos < <(
+    # o \n é obrigatório: sem ele o repoquery concatena os nomes sem separador
+    # ("adw-gtk3-themeresources") e o grep -qx nunca casa.
+    dnf -q repoquery --available --qf '%{name}\n' "${PKGS_FALTANDO[@]}" 2>/dev/null |
+      sort -u
+  )
+  _ausentes=()
+  _instalaveis=()
+  for p in "${PKGS_FALTANDO[@]}"; do
+    if printf '%s\n' "${_resolvidos[@]:-}" | grep -qx "$p"; then
+      _instalaveis+=("$p")
+    else
+      _ausentes+=("$p")
+    fi
+  done
+  if [ "${#_ausentes[@]}" -gt 0 ]; then
+    warn "packages.txt pede ${#_ausentes[@]} pacote(s) inexistente(s): ${_ausentes[*]}"
+    warn "ignorados nesta rodada — corrija o nome em lists/packages.txt"
+  fi
+  if [ "${#_instalaveis[@]}" -gt 0 ]; then
+    PKGS_FALTANDO=("${_instalaveis[@]}")
+  else
+    PKGS_FALTANDO=()
+  fi
+fi
+
 if [ "${#PKGS_FALTANDO[@]}" -eq 0 ]; then
   ok "pacotes já instalados — pulando"
 else
   dnf install -y "${PKGS_FALTANDO[@]}"
-  ok "pacotes instalados"
+  ok "${#PKGS_FALTANDO[@]} pacote(s) instalados"
 fi
 
 # --- virtualização (virt-manager) ------------------------------------ #
@@ -869,9 +902,32 @@ if command_exists ghostty; then
   if command -v update-desktop-database >/dev/null 2>&1; then
     try_warn as_user update-desktop-database "$SUH/.local/share/applications"
   fi
-  try_warn dnf install -y xdg-terminal-extras
-  try_warn update-alternatives --install x-gnome-terminal-provider.default x-terminal-emulator \
-    "$SUH/.local/share/applications/com.mitchellh.ghostty.desktop" 40
+  # Dois erros reais nesta parte, ambos medidos:
+  #  1. o .desktop do ghostty vem do rpm em /usr/share/applications — o caminho
+  #     em ~/.local/share que estava aqui não existe, e update-alternatives
+  #     falha em silêncio quando o alvo não existe;
+  #  2. o update-alternatives do Fedora exige caminho ABSOLUTO no <link>. Um
+  #     nome solto tipo "x-gnome-terminal-provider.default" dá exit=2 e nada
+  #     é registrado. O link precisa ser /etc/alternatives/x-terminal-emulator.
+  GHOSTTY_DESKTOP=/usr/share/applications/com.mitchellh.ghostty.desktop
+  if [ -f "$GHOSTTY_DESKTOP" ]; then
+    if rpm_installed alternatives; then
+      update-alternatives --install /etc/alternatives/x-terminal-emulator \
+        x-terminal-emulator "$GHOSTTY_DESKTOP" 40 >/dev/null 2>&1
+      if [ -L /etc/alternatives/x-terminal-emulator ]; then
+        ok "x-terminal-emulator -> ghostty"
+      else
+        warn "update-alternatives não criou /etc/alternatives/x-terminal-emulator"
+      fi
+    else
+      warn "pacote 'alternatives' ausente — terminal padrão não registrado"
+    fi
+    # org.gnome.desktop.terminal NÃO é usado aqui: esse schema vem do
+    # gnome-terminal, que não está instalado nesta máquina, então o gsettings
+    # falharia com "Nenhum esquema".
+  else
+    warn "ghostty instalado mas $GHOSTTY_DESKTOP não existe"
+  fi
   # esconde o terminal antigo, se existir
   if [ -f /usr/share/applications/org.gnome.Terminal.desktop ]; then
     sed -i '/^NoDisplay=/d' /usr/share/applications/org.gnome.Terminal.desktop 2>/dev/null || true

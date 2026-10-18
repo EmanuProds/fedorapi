@@ -112,4 +112,4 @@ dnf-plugins-core
 morewaita-icon-theme               # COPR rivenirvana (ícones extras para o Adwaita)
 starship                           # COPR chronoscrat (prompt do shell)
 resources                          # COPR atim/resources (beta) — monitor de recursos
-adw-gtk3                           # porta GTK3 do libadwaita (apps legados + flatpak)
+adw-gtk3-theme                     # porta GTK3 do libadwaita (apps legados + flatpak)
