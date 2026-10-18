@@ -419,6 +419,16 @@ install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
 install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
   "$CLONES/dotfiles/home/gdm/watermark.png" "$SUH/.config/watermark.png"
 cp -a "$CLONES/dotfiles/home/.config/." "$SUH/.config/"
+# Overrides de .desktop (ex.: "Monitor do sistema" no lugar do "Resources" do
+# pacote). O Dotfiles é a fonte única; o script só copia e ajusta o dono.
+if [ -d "$CLONES/dotfiles/home/.local/share/applications" ]; then
+  install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
+    "$SUH/.local/share/applications"
+  cp -a "$CLONES/dotfiles/home/.local/share/applications/." \
+    "$SUH/.local/share/applications/"
+  chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.local/share/applications"
+  try_warn update-desktop-database "$SUH/.local/share/applications"
+fi
 chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" \
   "$SUH/.config" "$SUH/.bashrc" "$SUH/.shell_aliases" 2>/dev/null || true
 # Ativação do mise/starship no .bashrc. O dotfiles já traz o .bashrc correto
@@ -759,38 +769,19 @@ else
   warn "ghostty não está no PATH — terminal padrão não configurado"
 fi
 
-# resources (COPR atim/resources, beta): o launcher do PACOTE é oculto com NoDisplay
-# e um override com o MESMO appID (net.nokyan.Resources.Devel) é escrito em
-# ~/.local/share/applications com o nome "Monitor do sistema" e o ícone do GNOME.
-# Manter o appID é o que importa: é por ele que a extensão/integração acha o app.
-# Se criassemos um appID novo (ex.: resources.desktop), sobraria um segundo launcher
-# "Resources" no menu, que era exatamente o bug.
+# resources (COPR atim/resources, beta): oculta os launchers que o substituem.
+# O override "Monitor do sistema" (mesmo appID do pacote) vem do Dotfiles, copiado
+# na fase 7 — aqui só escondemos os originais do sistema, senão os dois
+# aparecem no menu. O NoDisplay em /usr/share é perdido a cada dnf update, então
+# reaplicamos a cada run.
 if rpm_installed resources; then
-  RES_SRC="/usr/share/applications/net.nokyan.Resources.Devel.desktop"
-  RES_DIR="$SUH/.local/share/applications"
-  install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$RES_DIR"
-  if [ -f "$RES_SRC" ]; then
-    # reescreve o .desktop do pacote trocando só o que importa, mantendo o resto
-    # (Keywords de busca, traduções, categorias)
-    sed -e 's/^Name=.*/Name=Monitor do sistema/' \
-        -e 's/^Icon=.*/Icon=org.gnome.SystemMonitor/' \
-        "$RES_SRC" > "$RES_DIR/net.nokyan.Resources.Devel.desktop"
-    chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$RES_DIR/net.nokyan.Resources.Devel.desktop"
-    # e esconde o original, senão os dois aparecem
-    sed -i '/^NoDisplay=/d' "$RES_SRC" 2>/dev/null || true
-    printf 'NoDisplay=true\n' >> "$RES_SRC"
-  else
-    warn "resources: $RES_SRC não encontrado — override não gerado"
-  fi
-  # launcher de override antigo (appID separado), removido pelo bug do app duplicado
-  rm -f "$RES_DIR/resources.desktop"
-  # o gnome-system-monitor segue escondido: é o app que o "resources" substitui
-  if [ -f /usr/share/applications/org.gnome.SystemMonitor.desktop ]; then
-    sed -i '/^NoDisplay=/d' /usr/share/applications/org.gnome.SystemMonitor.desktop 2>/dev/null || true
-    printf 'NoDisplay=true\n' >> /usr/share/applications/org.gnome.SystemMonitor.desktop
-  fi
-  command -v update-desktop-database >/dev/null 2>&1 && try_warn update-desktop-database "$RES_DIR"
-  ok "resources: 'Monitor do sistema' (appID preservado) + launcher original oculto"
+  for orig in /usr/share/applications/net.nokyan.Resources.Devel.desktop \
+              /usr/share/applications/org.gnome.SystemMonitor.desktop; do
+    [ -f "$orig" ] || continue
+    sed -i '/^NoDisplay=/d' "$orig" 2>/dev/null || true
+    printf 'NoDisplay=true\n' >> "$orig"
+  done
+  ok "resources: launchers originais ocultos (override vem do dotfiles)"
 else
   warn "resources não instalado (COPR atim/resources) — Monitor do sistema não configurado"
 fi
