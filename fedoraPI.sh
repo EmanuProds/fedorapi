@@ -525,6 +525,22 @@ as_user "$SUH/.local/bin/mise" exec -- npm install --silent --prefix "$SUH/.conf
 # auxiliares + units: um repo por script
 clone_repo "$ACCENT_SYNC_REPO" "$CLONES/accent-sync"
 clone_repo "$TITLEBAR_REPO" "$CLONES/titlebar"
+
+# Adwaita Colors: gera variantes do tema de ícones (Adwaita-blue, -teal, ...)
+# que seguem a cor de destaque do GNOME; trabalha em conjunto com o MoreWaita.
+# Requer o MoreWaita instalado (pacote morewaita-icon-theme, Fase 3).
+if [ ! -d "$SUH/.local/share/icons/Adwaita-blue" ] && [ ! -d "/usr/share/icons/Adwaita-blue" ]; then
+  clone_repo "https://github.com/dpejoh/Adwaita-colors" "$CLONES/adwaita-colors"
+  # instala system-wide (precisa de root, que é quem roda o script)
+  if [ -x "$CLONES/adwaita-colors/setup" ]; then
+    try_warn "$CLONES/adwaita-colors/setup" -i -f
+    # integra o MoreWaita (gera as pastas coloridas para os ícones extras)
+    [ -x "$CLONES/adwaita-colors/morewaita.sh" ] && try_warn bash "$CLONES/adwaita-colors/morewaita.sh"
+    ok "adwaita-colors instalado (variantes por cor de destaque)"
+  fi
+else
+  ok "adwaita-colors já instalado — pulando"
+fi
 install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
   "$CLONES/accent-sync/accent-sync" "$SUH/.local/bin/accent-sync"
 install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
