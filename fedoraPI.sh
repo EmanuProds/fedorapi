@@ -1018,6 +1018,123 @@ if lspci 2>/dev/null | grep -qiE '10ec:c8(22|2f)'; then
   fi
 fi
 
+# --- snapper: limites de snapshot ------------------------------------- #
+# O pacote python3-dnf-plugin-snapper NÃO serve aqui: ele se registra em
+# /etc/dnf/plugins, que é o diretório de plugins do libdnf (dnf4), e no
+# Fedora 44 o /usr/bin/dnf é symlink para dnf5 — nenhuma lib do dnf5 lê
+# aquele caminho. O equivalente funcional é o libdnf5-plugin-actions, que já
+# vem instalado (é o que faz o cachy-default.actions funcionar).
+#
+# helper idempotente: reescreve a chave sem duplicar nem tocar nas demais
+SNAPPER_CFG=/etc/snapper/configs/root
+set_snapper_kv() {
+  local key=$1 val=$2
+  if grep -qE "^${key}=" "$SNAPPER_CFG"; then
+    sed -i "s|^${key}=.*|${key}=\"${val}\"|" "$SNAPPER_CFG"
+  else
+    printf '%s="%s"\n' "$key" "$val" >> "$SNAPPER_CFG"
+  fi
+}
+if [ -f "$SNAPPER_CFG" ]; then
+  # 5 no total. NUMBER_LIMIT e NUMBER_LIMIT_IMPORTANT iguais: se o segundo
+  # fosse maior, os "importantes" (que têm par pre/post) estourariam o teto.
+  set_snapper_kv NUMBER_LIMIT 5
+  set_snapper_kv NUMBER_LIMIT_IMPORTANT 5
+  # 300s em vez do padrão 3600: com 1h vários dnf no mesmo dia passariam do
+  # teto. Com 300s o ponto derollback recém-criado nunca é apagado.
+  set_snapper_kv NUMBER_MIN_AGE 300
+  # Timeline desligado: o pacote snapper-timeline não existe no Fedora 44, então
+  # TIMELINE_CREATE=yes não criaria nada — só confunde na leitura da config.
+  set_snapper_kv TIMELINE_CREATE no
+  set_snapper_kv TIMELINE_CLEANUP no
+  for k in TIMELINE_LIMIT_HOURLY TIMELINE_LIMIT_DAILY TIMELINE_LIMIT_WEEKLY \
+           TIMELINE_LIMIT_MONTHLY TIMELINE_LIMIT_QUARTERLY TIMELINE_LIMIT_YEARLY; do
+    set_snapper_kv "$k" 0
+  done
+  set_snapper_kv EMPTY_PRE_POST_CLEANUP yes
+  set_snapper_kv EMPTY_PRE_POST_MIN_AGE 0
+  set_snapper_kv NUMBER_CLEANUP yes
+  ok "snapper: teto de 5, min_age 300s, timeline desligado"
+else
+  warn "sem /etc/snapper/configs/root — limites do snapper não aplicados"
+fi
+
+# --- hook: snapshot automático em transação do dnf --------------------- #
+# Fala com o snapperd por D-Bus em vez da CLI, como faz o plugin do dnf4.
+# O "pre" grava o número em /run e o "post" fecha o par; sem o pre, um "post"
+# solto não teria rollback associado.
+cat > /tmp/snapper-dnf-hook.sh <<'HOOKEOF'
+#!/bin/bash
+set -u
+CFG="${SNAPPER_CONFIG:-root}"
+STATE_DIR=/run/snapper-dnf-hook
+PRE_FILE="$STATE_DIR/pre-number"
+mkdir -p "$STATE_DIR"
+snap_call() {
+  gdbus call --system --dest org.opensuse.Snapper \
+    --object-path /org/opensuse/Snapper --method "$@"
+}
+snapshot_number() { printf '%s' "$1" | sed -n 's/.*uint32 \([0-9]\+\).*/\1/p'; }
+run_cleanup() {
+  # 3 tentativas: logo após criar o snapshot o snapperd ainda pode estar
+  # terminando o trabalho interno e a chamada falha de forma transitória.
+  local n
+  for n in 1 2 3; do
+    if snapper -c "$CFG" cleanup number 2>&1; then return 0; fi
+    sleep 1
+  done
+  logger -t snapper-dnf-hook "aviso: cleanup number falhou após 3 tentativas"
+  return 1
+}
+case "${1:-}" in
+  pre)
+    if out=$(snap_call org.opensuse.Snapper.CreatePreSnapshot \
+      "$CFG" "dnf: antes da transação" number "{}"); then
+      num=$(snapshot_number "$out")
+      [ -n "$num" ] && printf '%s' "$num" > "$PRE_FILE"
+      logger -t snapper-dnf-hook "pre-snapshot #$num criado"
+    else
+      logger -t snapper-dnf-hook "falha ao criar o pre-snapshot: ${out##*: }"
+    fi ;;
+  post)
+    num=$(cat "$PRE_FILE" 2>/dev/null)
+    [ -n "$num" ] || exit 0
+    if out=$(snap_call org.opensuse.Snapper.CreatePostSnapshot \
+      "$CFG" "$num" "dnf: depois da transação" number "{}"); then
+      post=$(snapshot_number "$out")
+      logger -t snapper-dnf-hook "post-snapshot #$post criado (par #$num)"
+      rm -f "$PRE_FILE"
+      run_cleanup
+    else
+      logger -t snapper-dnf-hook "falha ao criar o post-snapshot: ${out##*: }"
+      rm -f "$PRE_FILE"
+    fi ;;
+esac
+exit 0
+HOOKEOF
+try_warn install -m 755 /tmp/snapper-dnf-hook.sh /usr/local/bin/snapper-dnf-hook.sh
+rm -f /tmp/snapper-dnf-hook.sh
+
+# A direção fica VAZIA de propósito: "in" casaria só com instalação e "out" só
+# com remoção, e um update de kernel passa pelas duas. Vazio = ambos os casos.
+# Os argumentos do comando são separados por espaço, então o "pre"/"post" aqui
+# são o $1 do script.
+cat > /etc/dnf/libdnf5-plugins/actions.d/10-snapper.actions <<'ACTIONSEOF'
+# Snapshots automaticos do snapper em transacoes do dnf5.
+# Formato: callback:filtro:direcao:opcoes:comando (libdnf5-actions(8))
+pre_transaction:*:::/usr/local/bin/snapper-dnf-hook.sh pre
+post_transaction:*:::/usr/local/bin/snapper-dnf-hook.sh post
+ACTIONSEOF
+
+# prova de vida: os dois artefatos precisam estar no lugar
+if [ -x /usr/local/bin/snapper-dnf-hook.sh ] &&
+   [ -f /etc/dnf/libdnf5-plugins/actions.d/10-snapper.actions ]; then
+  ok "hook de snapshot do dnf5 instalado (pre + post, cleanup a cada transação)"
+  ok "acompanhe com: journalctl -t snapper-dnf-hook -f"
+else
+  warn "hook de snapshot do dnf5 incompleto"
+fi
+
 # --- grub-btrfs: submenu de snapshots no boot ------------------------ #
 # O grub-btrfs do COPR kylegospo tem dois defeitos no Fedora:
 #   1. o grub-btrfs.path do rpm vem com "Requires=\x2esnapshots.mount" (o

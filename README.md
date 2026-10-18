@@ -78,6 +78,12 @@ the published latest and there is zero duplication:
     TCP MTU probing, `vm.min_free_kbytes` = 1% of RAM (recalculated every
     boot), AMD shader cache raised to 12G, Secure Boot keys + kernel/GRUB
     signing via `sbctl` (enabling Secure Boot itself is a manual BIOS step),
+    snapper capped at 5 snapshots (`NUMBER_LIMIT`/`NUMBER_LIMIT_IMPORTANT`),
+    timeline off (`snapper-timeline` does not exist in Fedora 44) and a
+    `libdnf5-plugin-actions` hook that brackets every dnf transaction with a
+    pre/post snapshot and runs `snapper cleanup number` itself — waiting for
+    `snapper-cleanup.timer` let the count reach 24; the hooks also fire for
+    PackageKit/Discover transactions,
     and `grub-btrfs`: snapper config + baseline snapshot, a fixed
     `grub-btrfs.path` (the packaged one carries a literal `\x2e` and never
     activates), regenerated `grub.cfg` and `menu_auto_hide` dropped so the
