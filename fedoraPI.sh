@@ -421,19 +421,13 @@ install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
 cp -a "$CLONES/dotfiles/home/.config/." "$SUH/.config/"
 chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" \
   "$SUH/.config" "$SUH/.bashrc" "$SUH/.shell_aliases" 2>/dev/null || true
-# Ativação do mise/starship no .bashrc (idempotente). Se o dotfiles ainda trouxer
-# a versão antiga (return interativo ANTES da linha do mise), o script reescreve o
-# cabeçalho: a ativação tem de vir antes do `[[ $- != *i* ]] && return`, senão
-# shell não-interativo (bash -c, scripts, o shell que um LLM abre) não acha o mise.
-if ! grep -q 'Mise ANTES do return interativo' "$SUH/.bashrc" 2>/dev/null; then
-  install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
-    "$CLONES/dotfiles/home/.bashrc" "$SUH/.bashrc"
-  ok ".bashrc: ativação do mise movida antes do return interativo"
-fi
+# Ativação do mise/starship no .bashrc. O dotfiles já traz o .bashrc correto
+# (ativação do mise antes do return interativo) e a fase 7 copia esse arquivo
+# acima; aqui só garantimos o starship, caso o dotfiles venha sem ele.
 if ! grep -q 'starship init bash' "$SUH/.bashrc" 2>/dev/null; then
   printf '\ncommand -v starship >/dev/null 2>&1 && eval "$(starship init bash)"\n' >> "$SUH/.bashrc"
+  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.bashrc"
 fi
-chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.bashrc"
 
 # BASH_ENV: bash -c SÓ lê o .bashrc se BASH_ENV apontar para ele. Sem isso, um LLM
 # que rode `npm ...` num shell não-interativo recebe "command not found".
@@ -445,11 +439,28 @@ fi
 # Symlinks em /usr/local/bin: última rede para processos que ignoram o BASH_ENV
 # (cron, units systemd, IDEs). O shim é um executável real, então funciona igual.
 if [ -d "$SUH/.local/share/mise/shims" ]; then
-  for shim in npm node bun bunx gh go pipx omniroute mise; do
+  for shim in npm node bun bunx gh go pipx omniroute; do
     [ -e "$SUH/.local/share/mise/shims/$shim" ] || continue
     ln -sfn "$SUH/.local/share/mise/shims/$shim" "/usr/local/bin/$shim"
   done
   ok "shims do mise expostos em /usr/local/bin"
+fi
+
+# ssh-agent: o Fedora já traz /usr/lib/systemd/user/ssh-agent.socket (com
+# SocketMode=0600 e DirectoryMode=0700). Basta habilitar — NÃO criamos uma unit
+# própria em ~/.config/systemd/user, que sobreporia a do vendor e perderia essas
+# permissões. enable sem --now: o socket sobe no próximo login.
+if [ -f /usr/lib/systemd/user/ssh-agent.socket ]; then
+  try_warn as_user systemctl --user enable ssh-agent.socket
+  ok "ssh-agent: socket do systemd habilitado (inicia no próximo login)"
+else
+  warn "ssh-agent.socket não encontrado no /usr/lib/systemd/user — agente não habilitado"
+fi
+# O SSH_AUTH_SOCK precisa existir no shell não-interativo (script/LLM/cron).
+# O systemd do usuário exporta %t/ssh-agent.socket na sessão; para o resto,
+# garantimos o link em /run/user/<uid>/ssh-agent.socket -> que é o %t.
+if [ -S "/run/user/$UID_R/ssh-agent.socket" ]; then
+  ok "ssh-agent: socket presente em %t"
 fi
 ok "dotfiles no lugar (bash, ghostty, zed, gamemode, topgrade, watermark)"
 
