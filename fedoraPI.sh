@@ -421,16 +421,36 @@ install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
 cp -a "$CLONES/dotfiles/home/.config/." "$SUH/.config/"
 chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" \
   "$SUH/.config" "$SUH/.bashrc" "$SUH/.shell_aliases" 2>/dev/null || true
-# Garante ativação do mise e do starship no .bashrc (idempotente): se o dotfiles
-# vier sem essas linhas (versão antiga), o usuário ainda consegue usar os
-# binários instalados pelo mise no terminal.
-if ! grep -q 'mise.*activate bash' "$SUH/.bashrc" 2>/dev/null; then
-  printf '\n# Mise (instalado em ~/.local/bin pelo mise.run)\neval "$("$HOME/.local/bin/mise" activate bash)" 2>/dev/null || true\n' >> "$SUH/.bashrc"
+# Ativação do mise/starship no .bashrc (idempotente). Se o dotfiles ainda trouxer
+# a versão antiga (return interativo ANTES da linha do mise), o script reescreve o
+# cabeçalho: a ativação tem de vir antes do `[[ $- != *i* ]] && return`, senão
+# shell não-interativo (bash -c, scripts, o shell que um LLM abre) não acha o mise.
+if ! grep -q 'Mise ANTES do return interativo' "$SUH/.bashrc" 2>/dev/null; then
+  install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
+    "$CLONES/dotfiles/home/.bashrc" "$SUH/.bashrc"
+  ok ".bashrc: ativação do mise movida antes do return interativo"
 fi
 if ! grep -q 'starship init bash' "$SUH/.bashrc" 2>/dev/null; then
   printf '\ncommand -v starship >/dev/null 2>&1 && eval "$(starship init bash)"\n' >> "$SUH/.bashrc"
 fi
 chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.bashrc"
+
+# BASH_ENV: bash -c SÓ lê o .bashrc se BASH_ENV apontar para ele. Sem isso, um LLM
+# que rode `npm ...` num shell não-interativo recebe "command not found".
+# /etc/environment é lido pelo PAM em todo login (não só no terminal).
+if ! grep -q '^BASH_ENV=' /etc/environment 2>/dev/null; then
+  printf 'BASH_ENV=%s/.bashrc\n' "$SUH" >> /etc/environment
+  ok "BASH_ENV apontando para o .bashrc (shell não-interativo enxerga o mise)"
+fi
+# Symlinks em /usr/local/bin: última rede para processos que ignoram o BASH_ENV
+# (cron, units systemd, IDEs). O shim é um executável real, então funciona igual.
+if [ -d "$SUH/.local/share/mise/shims" ]; then
+  for shim in npm node bun bunx gh go pipx omniroute mise; do
+    [ -e "$SUH/.local/share/mise/shims/$shim" ] || continue
+    ln -sfn "$SUH/.local/share/mise/shims/$shim" "/usr/local/bin/$shim"
+  done
+  ok "shims do mise expostos em /usr/local/bin"
+fi
 ok "dotfiles no lugar (bash, ghostty, zed, gamemode, topgrade, watermark)"
 
 # --- plymouth: esconder a watermark e centralizar o spinner --- #
