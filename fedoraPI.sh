@@ -835,13 +835,48 @@ install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
   "$CLONES/accent-sync/accent-sync" "$SUH/.local/bin/accent-sync"
 install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
   "$CLONES/titlebar/opencode-desktop-titlebar-patch" "$SUH/.local/bin/opencode-desktop-titlebar-patch"
+# wrapper para o patch achar o node do mise (validação de sintaxe pós-patch)
+install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" /dev/stdin "$SUH/.local/bin/opencode-desktop-titlebar-patch-wrapper" <<'EOF'
+#!/usr/bin/env bash
+export PATH="/home/emanuel/.local/share/mise/installs/node/lts/bin:$PATH"
+exec /home/emanuel/.local/bin/opencode-desktop-titlebar-patch "$@"
+EOF
+# units do accent-sync (user) + titlebar (sistema, pois /opt/OpenCode é root)
 install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.config/systemd/user"
 install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/accent-sync/units/"* "$SUH/.config/systemd/user/"
-install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/titlebar/units/"* "$SUH/.config/systemd/user/"
 as_user systemctl --user daemon-reload || true
-for u in accent-sync.path opencode-titlebar-patch.path; do
-  try_warn as_user systemctl --user enable --now "$u"
-done
+try_warn as_user systemctl --user enable --now accent-sync.path
+
+# titlebar patch: systemd system (PathChanged=/opt/OpenCode/resources/app.asar)
+pkexec tee /etc/systemd/system/opencode-titlebar-patch.service <<'EOF'
+[Unit]
+Description=Reaplica o patch de title bar do OpenCode Desktop
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/opencode-desktop-titlebar-patch-wrapper
+RemainAfterExit=no
+EOF
+pkexec tee /etc/systemd/system/opencode-titlebar-patch.path <<'EOF'
+[Unit]
+Description=Dispara o patch quando o app.asar do OpenCode Desktop muda
+
+[Path]
+PathChanged=/opt/OpenCode/resources/app.asar
+Unit=opencode-titlebar-patch.service
+
+[Install]
+WantedBy=multi-user.target
+EOF
+pkexec systemctl daemon-reload
+try_warn pkexec systemctl enable --now opencode-titlebar-patch.path
+# prova de vida: patch já aplicado?
+if pkexec "$SUH/.local/bin/opencode-desktop-titlebar-patch-wrapper" --check >/dev/null 2>&1; then
+  ok "titlebar patch aplicado e serviço de monitoramento ativo"
+else
+  warn "titlebar patch não aplicado — rodará no próximo upgrade do opencode"
+fi
 
 # OpenCode Desktop (app oficial em .rpm, pelo processo do site opencode.ai/download)
 if ! rpm -q opencode-desktop >/dev/null 2>&1; then
