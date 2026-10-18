@@ -374,6 +374,16 @@ install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" \
 cp -a "$CLONES/dotfiles/home/.config/." "$SUH/.config/"
 chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" \
   "$SUH/.config" "$SUH/.bashrc" "$SUH/.shell_aliases" 2>/dev/null || true
+# Garante ativação do mise e do starship no .bashrc (idempotente): se o dotfiles
+# vier sem essas linhas (versão antiga), o usuário ainda consegue usar os
+# binários instalados pelo mise no terminal.
+if ! grep -q 'mise.*activate bash' "$SUH/.bashrc" 2>/dev/null; then
+  printf '\n# Mise (instalado em ~/.local/bin pelo mise.run)\neval "$HOME/.local/bin/mise activate bash" 2>/dev/null || true\n' >> "$SUH/.bashrc"
+fi
+if ! grep -q 'starship init bash' "$SUH/.bashrc" 2>/dev/null; then
+  printf '\ncommand -v starship >/dev/null 2>&1 && eval "$(starship init bash)"\n' >> "$SUH/.bashrc"
+fi
+chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.bashrc"
 ok "dotfiles no lugar (bash, ghostty, zed, gamemode, topgrade, watermark)"
 
 # --- plymouth: esconder a watermark e centralizar o spinner (ajuste herdado do Arch; [two-step] é o teste de compatibilidade no 44) --- #

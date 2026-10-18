@@ -111,3 +111,4 @@ dnf-plugins-core
 
 ## --- Interface e temas ---
 morewaita-icon-theme               # COPR rivenirvana (ícones extras para o Adwaita)
+starship                           # COPR chronoscrat (prompt do shell)
