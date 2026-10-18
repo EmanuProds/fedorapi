@@ -378,7 +378,7 @@ chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" \
 # vier sem essas linhas (versão antiga), o usuário ainda consegue usar os
 # binários instalados pelo mise no terminal.
 if ! grep -q 'mise.*activate bash' "$SUH/.bashrc" 2>/dev/null; then
-  printf '\n# Mise (instalado em ~/.local/bin pelo mise.run)\neval "$HOME/.local/bin/mise activate bash" 2>/dev/null || true\n' >> "$SUH/.bashrc"
+  printf '\n# Mise (instalado em ~/.local/bin pelo mise.run)\neval "$("$HOME/.local/bin/mise" activate bash)" 2>/dev/null || true\n' >> "$SUH/.bashrc"
 fi
 if ! grep -q 'starship init bash' "$SUH/.bashrc" 2>/dev/null; then
   printf '\ncommand -v starship >/dev/null 2>&1 && eval "$(starship init bash)"\n' >> "$SUH/.bashrc"
