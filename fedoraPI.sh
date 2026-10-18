@@ -759,34 +759,38 @@ else
   warn "ghostty não está no PATH — terminal padrão não configurado"
 fi
 
-# resources (COPR atim/resources, beta): troca o ícone pelo do gnome-system-monitor,
-# renomeia para "Monitor do sistema" e esconde o gnome-system-monitor original.
-# O gnome-system-monitor precisa ficar escondido: a extensão "Resources" usa o
-# mesmo appID e não funciona se houver dois launchers com o mesmo nome visível.
+# resources (COPR atim/resources, beta): o launcher do PACOTE é oculto com NoDisplay
+# e um override com o MESMO appID (net.nokyan.Resources.Devel) é escrito em
+# ~/.local/share/applications com o nome "Monitor do sistema" e o ícone do GNOME.
+# Manter o appID é o que importa: é por ele que a extensão/integração acha o app.
+# Se criassemos um appID novo (ex.: resources.desktop), sobraria um segundo launcher
+# "Resources" no menu, que era exatamente o bug.
 if rpm_installed resources; then
-  RES_BIN=$(command -v resources 2>/dev/null || echo /usr/bin/resources)
+  RES_SRC="/usr/share/applications/net.nokyan.Resources.Devel.desktop"
   RES_DIR="$SUH/.local/share/applications"
   install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$RES_DIR"
-  cat > "$RES_DIR/resources.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=Monitor do sistema
-Name[en]=System Monitor
-Comment=Monitor de uso de CPU, memória, disco e rede
-Comment[en]=CPU, memory, disk and network usage monitor
-Exec=$RES_BIN
-Icon=org.gnome.SystemMonitor
-Terminal=false
-Categories=System;Monitor;GTK;
-StartupNotify=true
-EOF
-  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$RES_DIR/resources.desktop"
+  if [ -f "$RES_SRC" ]; then
+    # reescreve o .desktop do pacote trocando só o que importa, mantendo o resto
+    # (Keywords de busca, traduções, categorias)
+    sed -e 's/^Name=.*/Name=Monitor do sistema/' \
+        -e 's/^Icon=.*/Icon=org.gnome.SystemMonitor/' \
+        "$RES_SRC" > "$RES_DIR/net.nokyan.Resources.Devel.desktop"
+    chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$RES_DIR/net.nokyan.Resources.Devel.desktop"
+    # e esconde o original, senão os dois aparecem
+    sed -i '/^NoDisplay=/d' "$RES_SRC" 2>/dev/null || true
+    printf 'NoDisplay=true\n' >> "$RES_SRC"
+  else
+    warn "resources: $RES_SRC não encontrado — override não gerado"
+  fi
+  # launcher de override antigo (appID separado), removido pelo bug do app duplicado
+  rm -f "$RES_DIR/resources.desktop"
+  # o gnome-system-monitor segue escondido: é o app que o "resources" substitui
   if [ -f /usr/share/applications/org.gnome.SystemMonitor.desktop ]; then
     sed -i '/^NoDisplay=/d' /usr/share/applications/org.gnome.SystemMonitor.desktop 2>/dev/null || true
     printf 'NoDisplay=true\n' >> /usr/share/applications/org.gnome.SystemMonitor.desktop
   fi
   command -v update-desktop-database >/dev/null 2>&1 && try_warn update-desktop-database "$RES_DIR"
-  ok "resources: renomeado para 'Monitor do sistema' + gnome-system-monitor oculto"
+  ok "resources: 'Monitor do sistema' (appID preservado) + launcher original oculto"
 else
   warn "resources não instalado (COPR atim/resources) — Monitor do sistema não configurado"
 fi
