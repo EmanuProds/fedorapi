@@ -52,7 +52,7 @@ the published latest and there is zero duplication:
    + `mesa-vulkan-drivers-freeworld` (Fedora 44 folded VA/VDPAU into
    `mesa-dri-drivers`, so only Vulkan is swapped), `@multimedia` group minus
    `libheif-freeworld` (RPM Fusion lag against Fedora updates), `libva(-utils)`
-   for the Radeon, and `libsvtav1` (software AV1 decode for Sunshine)
+   for the Radeon, and `svt-av1-libs` (software AV1 decode for Sunshine)
 5. **Services** — `systemctl enable --now` from `lists/services.txt`; the official
    Tailscale repo is added here first (Fedora has no `tailscale` package, and
    without it `tailscaled.service` does not exist); `dnsmasq` becomes the local

@@ -249,13 +249,6 @@ if ! rpm_installed lazydocker; then
 else
   ok "lazydocker já instalado — pulando"
 fi
-# Microsoft Core Fonts: o instalador baixa as fontes da Microsoft e exige
-# aceite de EULA (rpm --nodeps). Vem do RPM Fusion nonfree.
-if ! rpm_installed ttf-mscorefonts-installer; then
-  try_warn dnf install -y ttf-mscorefonts-installer
-else
-  ok "ttf-mscorefonts-installer já instalado — pulando"
-fi
 
 # --- cola do kernel cachy (comentada linha a linha em candidates) --
 # cachyos-settings fornece/obsoleta o zram-generator-defaults: os dois NAO podem
@@ -331,12 +324,13 @@ if ! rpm_installed libva-utils; then
 else
   ok "libva/libva-utils já instalados — pulando"
 fi
-# libsvtav1: decodificação de AV1 por software (o hardware do 5500U não tem
-# decoder AV1). É o que o Sunshine precisa para enviar vídeo AV1.
-if ! rpm_installed libsvtav1; then
-  try_warn dnf install -y libsvtav1
+# svt-av1-libs: decodificação de AV1 por software (o hardware do 5500U não tem
+# decoder AV1). É o que o Sunshine precisa para enviar vídeo AV1. No Fedora o
+# pacote se chama svt-av1-libs — "libsvtav1" é o nome do RPM Fusion.
+if ! rpm_installed svt-av1-libs; then
+  try_warn dnf install -y svt-av1-libs
 else
-  ok "libsvtav1 (AV1) já instalado — pulando"
+  ok "svt-av1-libs (AV1) já instalado — pulando"
 fi
 phase_end "$_f0" "codecs/VA-API prontos"
 
@@ -929,7 +923,20 @@ else
   warn "BBR3 não ficou como congestion control (o módulo carregou? $(ls /lib/modules/$(uname -r)/kernel/net/ipv4/tcp_bbr3.ko.zst 2>/dev/null | wc -l) arquivo(s) encontrado(s))"
 fi
 
-# vm.min_free_kbytes = 1% da RAM, recalculado a cada boot
+# vm.min_free_kbytes = 1% da RAM, recalculado a cada boot.
+# O cálculo fica num script próprio: embutir o awk no ExecStart exige escaping
+# de aspas dentro do unit, e o systemd executa o ExecStart via shell — as
+# aspas escapadas viram literais e o awk falha.
+cat > /tmp/set-min-free-mem.sh <<'EOF'
+#!/bin/sh
+# Define vm.min_free_kbytes como 1% da RAM total.
+# 1% acompanha upgrades/downgrades de RAM sem precisar recalcular na mão.
+set -e
+kbytes=$(awk '/MemTotal/ {printf "%.0f", $2 * 0.01}' /proc/meminfo)
+sysctl -w "vm.min_free_kbytes=$kbytes"
+EOF
+try_warn install -m 755 /tmp/set-min-free-mem.sh /usr/local/bin/set-min-free-mem.sh
+rm -f /tmp/set-min-free-mem.sh
 if [ ! -f /etc/systemd/system/set-min-free-mem.service ]; then
   cat > /etc/systemd/system/set-min-free-mem.service <<'EOF'
 [Unit]
@@ -940,7 +947,7 @@ Before=sysinit.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c "sysctl -w vm.min_free_kbytes=$(awk '/MemTotal/ {printf \"%.0f\", $2 * 0.01}' /proc/meminfo)"
+ExecStart=/usr/local/bin/set-min-free-mem.sh
 
 [Install]
 WantedBy=sysinit.target
@@ -948,7 +955,7 @@ EOF
   try_warn systemctl daemon-reload
   try_warn systemctl enable set-min-free-mem.service
 fi
-try_warn systemctl start set-min-free-mem.service
+try_warn systemctl restart set-min-free-mem.service
 ok "min_free_kbytes = 1% da RAM ($(awk '/MemTotal/ {printf \"%.0f\", $2 * 0.01}' /proc/meminfo) kB)"
 
 # --- cache de shader (AMD/RADV) -------------------------------------- #
