@@ -625,49 +625,88 @@ fi
 step "Fase 8/13 - restaurando GNOME (dconf dump do repo dotfiles)"
 try_warn as_user dconf load / < "$CLONES/dotfiles/dconf/gnome-settings.ini"
 
-# App Folders do GNOME: agrupa apps no overview por categoria (estilo Arch/CachyOS).
+# App Folders do GNOME: agrupa apps no overview (estilo Arch/CachyOS).
 # Configuração por usuário via gsettings (idempotente: reescreve a lista completa).
+# TODAS as pastas usam LISTA EXPLICITA de apps (categories=@as [] + excluded-apps=@as []),
+# nao casamento por categoria — robusto a mudanças de .desktop dos apps.
 AF="org.gnome.desktop.app-folders"
 ASF="org.gnome.desktop.app-folders.folder:/org/gnome/desktop/app-folders/folders"
-try_warn as_user gsettings set "$AF" folder-children \
-  "['Escritorio', 'Editores', 'Utilitarios', 'Ferramentas', 'Sistema', 'Jogos', 'Wine']"
+try_warn as_user gsettings set "$AF" folder-children   "['Multimidia', 'Ferramentas', 'Utilitarios', 'Escritorio', 'Jogos', 'Wine', 'Sistema']"
 
-# Escritório (Office)
-try_warn as_user gsettings set "$ASF/Escritorio/" name 'Office.directory'
-try_warn as_user gsettings set "$ASF/Escritorio/" translate true
-try_warn as_user gsettings set "$ASF/Escritorio/" categories "['Office']"
+# Listas de apps por pasta (copiadas do estado real da máquina, já sem duplicatas).
+# O gsettings aceita arrays JSON: apps=['app1.desktop', 'app2.desktop', ...]
+readonly MULTIMIDIA_APPS="['io.github.seadve.Kooha.desktop', 'gimp.desktop', 'org.inkscape.Inkscape.desktop', 'org.pitivi.Pitivi.desktop', 'org.kde.drawy.desktop', 'io.gitlab.theevilskeleton.Upscaler.desktop', 'org.nickvision.tubeconverter.desktop']"
+readonly FERRAMENTAS_APPS="['virt-manager.desktop', 'io.gitlab.adhami3310.Impression.desktop', 'org.gnome.baobab.desktop', 'it.mijorus.gearlever.desktop', 'io.github.flattool.Warehouse.desktop', 'com.mattjakeman.ExtensionManager.desktop', 'page.codeberg.libre_menu_editor.LibreMenuEditor.desktop', 'org.fedoraproject.MediaWriter.desktop']"
+readonly UTILITARIOS_APPS="['org.gnome.Calendar.desktop', 'org.gnome.Weather.desktop', 'org.gnome.clocks.desktop', 'org.gnome.Decibels.desktop', 'org.gnome.Showtime.desktop', 'org.gnome.Snapshot.desktop', 'org.gnome.Loupe.desktop', 'org.gnome.Papers.desktop', 'org.gnome.FileRoller.desktop', 'org.gnome.Characters.desktop', 'org.gnome.font-viewer.desktop', 'org.gnome.Maps.desktop']"
+readonly ESCRITORIO_APPS="['io.github.diegoivan.pdf_metadata_editor.desktop', 'org.gnome.SimpleScan.desktop', 'com.calibre_ebook.calibre.desktop', 'com.calibre_ebook.calibre.lrfviewer.desktop', 'com.calibre_ebook.calibre.ebook-edit.desktop', 'com.calibre_ebook.calibre.ebook-viewer.desktop']"
+readonly JOGOS_APPS="['steam.desktop', 'epic_games_launcher.desktop', 'net.retrodeck.retrodeck.Configurator.desktop', 'com.heroicgameslauncher.hgl.desktop', 'io.github.radiolamp.mangojuice.desktop']"
+readonly WINE_APPS="['com.vysp3r.ProtonPlus.desktop', 'com.github.Matoking.protontricks.desktop', 'winetricks.desktop', 'wine-winecfg.desktop', 'wine-winefile.desktop', 'wine-uninstaller.desktop', 'wine-regedit.desktop']"
+readonly SISTEMA_APPS="['org.gnome.tweaks.desktop', 'io.github.flattool.Ignition.desktop', 'net.nokyan.Resources.Devel.desktop', 'org.gnome.DiskUtility.desktop', 'com.github.tchx84.Flatseal.desktop', 'io.github.realmazharhussain.GdmSettings.desktop', 'btrfs-assistant.desktop', 'org.cachyos.scx-manager.desktop', 'org.gnome.Logs.desktop']"
 
-# Editores (Development + TextEditor)
-try_warn as_user gsettings set "$ASF/Editores/" name 'Editores'
-try_warn as_user gsettings set "$ASF/Editores/" translate false
-try_warn as_user gsettings set "$ASF/Editores/" categories "['Development', 'TextEditor']"
+# Multimídia (era 'Editores') — apps de criação de mídia
+try_warn as_user gsettings set "$ASF/Multimidia/" name 'Multimídia'
+try_warn as_user gsettings set "$ASF/Multimidia/" translate false
+try_warn as_user gsettings set "$ASF/Multimidia/" categories "@as []"
+try_warn as_user gsettings set "$ASF/Multimidia/" apps "$MULTIMIDIA_APPS"
+try_warn as_user gsettings set "$ASF/Multimidia/" excluded-apps "@as []"
 
-# Utilitários
-try_warn as_user gsettings set "$ASF/Utilitarios/" name 'Utilities.directory'
-try_warn as_user gsettings set "$ASF/Utilitarios/" translate true
-try_warn as_user gsettings set "$ASF/Utilitarios/" categories "['Utility', 'X-GNOME-Utilities']"
-
-# Ferramentas
+# Ferramentas — apps de sistema/ferramentas avançadas
 try_warn as_user gsettings set "$ASF/Ferramentas/" name 'Ferramentas'
 try_warn as_user gsettings set "$ASF/Ferramentas/" translate false
-try_warn as_user gsettings set "$ASF/Ferramentas/" categories "['System', 'Settings']"
+try_warn as_user gsettings set "$ASF/Ferramentas/" categories "@as []"
+try_warn as_user gsettings set "$ASF/Ferramentas/" apps "$FERRAMENTAS_APPS"
+try_warn as_user gsettings set "$ASF/Ferramentas/" excluded-apps "@as []"
 
-# Sistema
-try_warn as_user gsettings set "$ASF/Sistema/" name 'Sistema'
-try_warn as_user gsettings set "$ASF/Sistema/" translate false
-try_warn as_user gsettings set "$ASF/Sistema/" categories "['X-GNOME-SystemSettings']"
+# Utilitários — apps básicos do GNOME (sem duplicatas das outras pastas)
+try_warn as_user gsettings set "$ASF/Utilitarios/" name 'Utilities.directory'
+try_warn as_user gsettings set "$ASF/Utilitarios/" translate true
+try_warn as_user gsettings set "$ASF/Utilitarios/" categories "@as []"
+try_warn as_user gsettings set "$ASF/Utilitarios/" apps "$UTILITARIOS_APPS"
+try_warn as_user gsettings set "$ASF/Utilitarios/" excluded-apps "@as []"
+
+# Escritório (era 'Escritorio' com 'Office.directory')
+try_warn as_user gsettings set "$ASF/Escritorio/" name 'Office.directory'
+try_warn as_user gsettings set "$ASF/Escritorio/" translate true
+try_warn as_user gsettings set "$ASF/Escritorio/" categories "@as []"
+try_warn as_user gsettings set "$ASF/Escritorio/" apps "$ESCRITORIO_APPS"
+try_warn as_user gsettings set "$ASF/Escritorio/" excluded-apps "@as []"
 
 # Jogos
 try_warn as_user gsettings set "$ASF/Jogos/" name 'Game.directory'
 try_warn as_user gsettings set "$ASF/Jogos/" translate true
-try_warn as_user gsettings set "$ASF/Jogos/" categories "['Game']"
+try_warn as_user gsettings set "$ASF/Jogos/" categories "@as []"
+try_warn as_user gsettings set "$ASF/Jogos/" apps "$JOGOS_APPS"
+try_warn as_user gsettings set "$ASF/Jogos/" excluded-apps "@as []"
 
 # Wine
 try_warn as_user gsettings set "$ASF/Wine/" name 'Wine.directory'
 try_warn as_user gsettings set "$ASF/Wine/" translate true
-try_warn as_user gsettings set "$ASF/Wine/" categories "['Wine', 'X-Wine']"
+try_warn as_user gsettings set "$ASF/Wine/" categories "@as []"
+try_warn as_user gsettings set "$ASF/Wine/" apps "$WINE_APPS"
+try_warn as_user gsettings set "$ASF/Wine/" excluded-apps "@as []"
 
-ok "dconf restaurado"
+# Sistema (lista explícita — a categoria antiga não existia e deixava a pasta vazia)
+try_warn as_user gsettings set "$ASF/Sistema/" name 'Sistema'
+try_warn as_user gsettings set "$ASF/Sistema/" translate false
+try_warn as_user gsettings set "$ASF/Sistema/" categories "@as []"
+try_warn as_user gsettings set "$ASF/Sistema/" apps "$SISTEMA_APPS"
+try_warn as_user gsettings set "$ASF/Sistema/" excluded-apps "@as []"
+
+# Limpa qualquer pasta-UUID órfã que o GNOME tenha criado manualmente
+for _uuid in $(as_user gsettings get "$AF" folder-children 2>/dev/null |
+  grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' || true); do
+  as_user gsettings reset-recursively "$ASF/$_uuid/" 2>/dev/null || true
+done
+
+# prova de vida: cada pasta tem que ter apps, senão o GNOME esconde
+for _pasta in Multimidia Ferramentas Utilitarios Escritorio Jogos Wine Sistema; do
+  if [ "$(as_user gsettings get "$ASF/$_pasta/" apps 2>/dev/null | grep -o '\.desktop' | wc -l)" -gt 0 ]; then
+    ok "pasta '$_pasta' com apps"
+  else
+    warn "pasta '$_pasta' ficou sem apps — o GNOME vai escondê-la"
+  fi
+done
+ok "dconf restaurado (pastas explícitas: Multimídia, Ferramentas, Utilitários, Escritório, Jogos, Wine, Sistema)"
 
 # --------------------------------------------------------------- #
 # 9. EXTENSÕES DO GNOME  (D-Bus: InstallRemoteExtension)          #

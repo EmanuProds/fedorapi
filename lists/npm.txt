@@ -1,4 +1,6 @@
 # npm.txt — globais via npm (todo node gerido pelo mise)
+# O --allow-scripts é passado pelo fedoraPI.sh (npm 11.x bloqueia postinstall).
+@opencode/cli                        # CLI do OpenCode 2.x (o mesmo que o Desktop)
 prettier
 pyright
 typescript-language-server
