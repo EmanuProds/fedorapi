@@ -13,6 +13,13 @@ if [ -d "$CLONES/dotfiles/home/.local/share/applications" ]; then
   chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.local/share/applications"
   try_warn update-desktop-database "$SUH/.local/share/applications"
 fi
+# Ícones customizados (hicolor) do dotfiles
+if [ -d "$CLONES/dotfiles/home/.local/share/icons" ]; then
+  install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.local/share/icons"
+  cp -a "$CLONES/dotfiles/home/.local/share/icons/." "$SUH/.local/share/icons/"
+  chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.local/share/icons"
+  try_warn gtk-update-icon-cache -f "$SUH/.local/share/icons/hicolor"
+fi
 chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config" "$SUH/.bashrc" "$SUH/.shell_aliases" 2>/dev/null || true
 if ! grep -q 'starship init bash' "$SUH/.bashrc" 2>/dev/null; then
   printf '\ncommand -v starship >/dev/null 2>&1 && eval "$(starship init bash)"\n' >> "$SUH/.bashrc"
