@@ -30,6 +30,13 @@ for v in 'e\[1;31m' 'e\[1;33m' 'e\[1;32m'; do
   grep -rqE "$v" "$R/lib" "$R/install.sh" && ok "cor $v definida" || bad "cor $v faltando"
 done
 grep -rq 'VerticalAlignment' "$R/lib" "$R/install.sh" && ok "plymouth VerticalAlignment" || bad "plymouth tweak ausente"
+# GDM: fase 16 deve existir e aplicar a escala de interface no login screen
+[ -f "$R/lib/phases/16.sh" ] && ok "fase 16 (GDM)" || bad "fase 16 (GDM) ausente"
+grep -q 'text-scaling-factor' "$R/lib/phases/16.sh" && ok "GDM aplica text-scaling-factor" || bad "GDM sem text-scaling-factor"
+grep -q '99-gdm-scale' "$R/lib/phases/16.sh" && ok "GDM keyfile 99- (vence o 95- da extensão)" || bad "GDM keyfile 99- ausente"
+grep -q 'monitors.xml' "$R/lib/phases/16.sh" && ok "GDM copia monitors.xml" || bad "GDM sem cópia de monitors.xml"
+grep -q 'system-db:gdm' "$R/lib/phases/16.sh" && ok "GDM cria profile dconf" || bad "GDM sem profile dconf"
+grep -q '"16:GDM' "$R/install.sh" && ok "install.sh registra fase 16" || bad "install.sh sem fase 16"
 ! grep -rq 'pip install' "$R/lib" "$R/install.sh" && ok "sem pip install (PEP 668)" || bad "pip install presente"
 for repo in "$DOTFILES" "$ACCENT" "$TITLEBAR"; do
   grep -rq "$repo" "$R/lib" "$R/install.sh" && ok "URL no script: $(basename "$repo" .git)" \

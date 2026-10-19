@@ -21,6 +21,7 @@ PHASES=(
   "13:LSPs (npm) + gopls"
   "14:Tuning (kernel + split-lock + BBR3 + snapper + Secure Boot)"
   "15:GIMP PhotoGIMP + Inkscape (adw-inkscape)"
+  "16:GDM (login screen: escala de interface 125%)"
 )
 
 step "Iniciando pós instalação customizada do Fedora $FDC (logs em: $LOG)"
