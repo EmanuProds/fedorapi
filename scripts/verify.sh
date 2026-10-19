@@ -73,6 +73,13 @@ grep -q 'export GOPATH="\$HOME/.go"' "$CACHE/dotfiles/home/.bashrc" \
 ! grep -q '/home/emanuel' "$CACHE/dotfiles/home/.config/inkscape/preferences.xml" \
   && ok "dotfiles inkscape preferences sem path hardcoded" \
   || bad "dotfiles inkscape preferences com path hardcoded"
+# Webapps (PWA): launchers + icones + pasta WebApps no overview
+n_ffpwa=$(find "$CACHE/dotfiles/home/.local/share/applications" -name 'FFPWA-*.desktop' 2>/dev/null | wc -l)
+[ "$n_ffpwa" -ge 10 ] && ok "dotfiles webapps FFPWA ($n_ffpwa launchers)" || bad "dotfiles webapps FFPWA ($n_ffpwa launchers)"
+n_ffpwa_ico=$(find "$CACHE/dotfiles/home/.local/share/icons/hicolor" -name 'FFPWA-*.png' 2>/dev/null | wc -l)
+[ "$n_ffpwa_ico" -ge 10 ] && ok "dotfiles icones FFPWA ($n_ffpwa_ico pngs)" || bad "dotfiles icones FFPWA ($n_ffpwa_ico pngs)"
+grep -q 'folders/WebApps' "$CACHE/dotfiles/dconf/gnome-settings.ini" \
+  && ok "dotfiles pasta WebApps no dconf" || bad "dotfiles sem pasta WebApps no dconf"
 [ -s "$CACHE/dotfiles/dconf/gnome-settings.ini" ] && ok "dotfiles dconf dump" || bad "dconf dump ausente"
 ! grep -qiE 'password|secret|token|api_key' "$CACHE/dotfiles/dconf/gnome-settings.ini" \
   && ok "dconf sem secrets" || bad "dconf pode conter secrets"
