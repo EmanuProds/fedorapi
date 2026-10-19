@@ -22,16 +22,17 @@ for f in lists/packages.txt lists/removals.txt \
 done
 
 # --- 2. script fedoraPI.sh
-bash -n "$R/fedoraPI.sh" && ok "fedoraPI.sh sintaxe" || bad "fedoraPI.sh sintaxe"
-grep -q 'set -euo pipefail' "$R/fedoraPI.sh" && ok "set -euo pipefail" || bad "sem set -euo pipefail"
+bash -n "$R/install.sh" && ok "install.sh sintaxe" || bad "install.sh sintaxe"
+grep -q 'set -euo pipefail' "$R/install.sh" && ok "set -euo pipefail" || bad "sem set -euo pipefail"
 ! grep -qE '\bdialog\b' "$R/fedoraPI.sh" && ok "sem dialog" || bad "dialog presente"
+# cores/plymouth/URLs podem estar em lib/ (estrutura modular)
 for v in 'e\[1;31m' 'e\[1;33m' 'e\[1;32m'; do
-  grep -qE "$v" "$R/fedoraPI.sh" && ok "cor $v definida" || bad "cor $v faltando"
+  grep -rqE "$v" "$R/lib" "$R/install.sh" && ok "cor $v definida" || bad "cor $v faltando"
 done
-grep -q 'VerticalAlignment' "$R/fedoraPI.sh" && ok "plymouth VerticalAlignment" || bad "plymouth tweak ausente"
-! grep -q 'pip install' "$R/fedoraPI.sh" && ok "sem pip install (PEP 668)" || bad "pip install presente"
+grep -rq 'VerticalAlignment' "$R/lib" "$R/install.sh" && ok "plymouth VerticalAlignment" || bad "plymouth tweak ausente"
+! grep -rq 'pip install' "$R/lib" "$R/install.sh" && ok "sem pip install (PEP 668)" || bad "pip install presente"
 for repo in "$DOTFILES" "$ACCENT" "$TITLEBAR"; do
-  grep -q "$repo" "$R/fedoraPI.sh" && ok "URL no script: $(basename "$repo" .git)" \
+  grep -rq "$repo" "$R/lib" "$R/install.sh" && ok "URL no script: $(basename "$repo" .git)" \
     || bad "URL ausente no script: $repo"
 done
 # o fedorapi nao deve mais carregar dotfiles/scripts duplicados
