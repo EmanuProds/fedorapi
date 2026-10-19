@@ -51,6 +51,11 @@ clone "$TITLEBAR" "$CACHE/titlebar"   && ok "clone titlebar"    || bad "clone ti
 [ -s "$CACHE/dotfiles/home/.bashrc" ] && ok "dotfiles .bashrc" || bad "dotfiles .bashrc ausente"
 ! grep -q '/home/emanuel' "$CACHE/dotfiles/home/.bashrc" && ok "dotfiles .bashrc sem path hardcoded" \
   || bad "dotfiles .bashrc com path hardcoded"
+grep -q 'export GOPATH="\$HOME/.go"' "$CACHE/dotfiles/home/.bashrc" \
+  && ok "dotfiles .bashrc configura GOPATH" || bad "dotfiles .bashrc sem GOPATH"
+[ -s "$CACHE/dotfiles/home/.config/go/env" ] && ok "dotfiles go/env" || bad "dotfiles go/env ausente"
+[ -s "$CACHE/dotfiles/home/.config/environment.d/go.conf" ] && ok "dotfiles environment.d/go.conf" \
+  || bad "dotfiles environment.d/go.conf ausente"
 [ -s "$CACHE/dotfiles/home/.config/ghostty/config" ] && ok "dotfiles ghostty" || bad "dotfiles ghostty ausente"
 [ -s "$CACHE/dotfiles/home/.config/zed/settings.json" ] && ok "dotfiles zed" || bad "dotfiles zed ausente"
 [ -s "$CACHE/dotfiles/dconf/gnome-settings.ini" ] && ok "dotfiles dconf dump" || bad "dconf dump ausente"

@@ -18,6 +18,32 @@ if ! grep -q 'starship init bash' "$SUH/.bashrc" 2>/dev/null; then
   printf '\ncommand -v starship >/dev/null 2>&1 && eval "$(starship init bash)"\n' >> "$SUH/.bashrc"
   chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.bashrc"
 fi
+# Go: garante bloco GOPATH em ~/.go antes do return interativo (robustez se o
+# dotfiles publicado ainda não tiver a config).
+if ! grep -q 'export GOPATH="\$HOME/.go"' "$SUH/.bashrc" 2>/dev/null; then
+  python3 - "$SUH/.bashrc" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+block = '''# Go: GOPATH/GOMODCACHE em ~/.go (e não no padrão ~/go).
+export GOPATH="$HOME/.go"
+export GOMODCACHE="$GOPATH/pkg/mod"
+export BASH_ENV="$HOME/.bashrc"
+case ":$PATH:" in
+    *":$GOPATH/bin:"*) ;;
+    *) export PATH="$GOPATH/bin:$PATH" ;;
+esac
+
+'''
+marker = '[[ $- != *i* ]] && return'
+if marker in s:
+    s = s.replace(marker, block + marker, 1)
+else:
+    s = block + s
+open(p, 'w').write(s)
+PY
+  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.bashrc"
+fi
 if ! grep -q '^BASH_ENV=' /etc/environment 2>/dev/null; then
   printf 'BASH_ENV=%s/.bashrc\n' "$SUH" >> /etc/environment
   ok "BASH_ENV configurado"
