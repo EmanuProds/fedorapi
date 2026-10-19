@@ -21,4 +21,8 @@ else
   as_user gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3'
 fi
 [ -x "$SUH/.local/bin/accent-sync" ] && try_warn as_user "$SUH/.local/bin/accent-sync"
+# Atualiza cache de ícones do flatpak (evita ícones quebrados/genéricos no GNOME Shell).
+if [ -d /var/lib/flatpak/exports/share/icons/hicolor ]; then
+  try_warn gtk-update-icon-cache -f /var/lib/flatpak/exports/share/icons/hicolor
+fi
 phase_end "$_f0" "flatpaks instalados"

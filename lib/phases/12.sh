@@ -198,4 +198,13 @@ else
   ok "markdown-oxide já instalado — pulando"
 fi
 
+# Atualiza cache de ícones (flatpak hicolor + tema ativo) para evitar ícones
+# quebrados/genéricos no GNOME Shell após instalar flatpaks/temas.
+if [ -d /var/lib/flatpak/exports/share/icons/hicolor ]; then
+  try_warn gtk-update-icon-cache -f /var/lib/flatpak/exports/share/icons/hicolor
+fi
+ACTIVE_THEME=$(as_user gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d "'")
+if [ -n "$ACTIVE_THEME" ] && [ -d "$SUH/.local/share/icons/$ACTIVE_THEME" ]; then
+  try_warn gtk-update-icon-cache -f "$SUH/.local/share/icons/$ACTIVE_THEME"
+fi
 ok "customization concluída"
