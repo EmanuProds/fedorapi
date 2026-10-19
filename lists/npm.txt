@@ -5,6 +5,6 @@ prettier
 pyright
 typescript-language-server
 yaml-language-server
-marksman
+# marksman (LSP de markdown) vem do GitHub (artempyanykh/marksman) — ver phases.txt
 @postgres-language-server/cli
 gh-actions-language-server   # GitHub Actions LSP (wrapper do @actions/languageserver)
