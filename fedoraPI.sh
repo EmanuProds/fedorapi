@@ -28,6 +28,15 @@ die()  { printf '%s[FAIL]%s %s\n' "$C_RED" "$C_OFF" "$*" >&2; exit 1; }
 FAIL_COUNT=0
 try_warn() { "$@" || { warn "não-crítico, seguiu em frente: $*"; mark_fail; }; }
 mark_fail() { FAIL_COUNT=$((FAIL_COUNT + 1)); }
+# Com 'set -e' qualquer comando nu que falhe ENCERRA o script. Quando esse
+# comando ainda redireciona a saida, o script morre em silencio e o log
+# termina sem explicar nada (aconteceu na fase 11). O trap ERR com errtrace
+# imprime a linha exata culprit antes de sair.
+set -o errtrace
+trap 'rc=$?; printf "\n%s[FATAL]%s linha %s devolveu %s — script encerrado por set -e\n" \
+  "$C_RED" "$C_OFF" "$LINENO" "$rc" >&2
+  printf "%s        comando: %s%s\n" "$C_YEL" "${BASH_COMMAND:-desconhecido}" "$C_OFF" >&2
+  exit "$rc"' ERR
 # fecha a fase com honestidade: [ OK ] só quando nenhum passo não-crítico falhou
 phase_end() { # phase_end <FAIL_COUNT do início da fase> <texto de sucesso>
   local antes="$1" texto="$2"
@@ -990,18 +999,25 @@ if command_exists ghostty; then
   #  1. o .desktop do ghostty vem do rpm em /usr/share/applications — o caminho
   #     em ~/.local/share que estava aqui não existe, e update-alternatives
   #     falha em silêncio quando o alvo não existe;
-  #  2. o update-alternatives do Fedora exige caminho ABSOLUTO no <link>. Um
-  #     nome solto tipo "x-gnome-terminal-provider.default" dá exit=2 e nada
-  #     é registrado. O link precisa ser /etc/alternatives/x-terminal-emulator.
+  #  2. o nome do grupo precisa ser o canônico do Fedora (x-terminal-emulator).
+  #     Um nome solto tipo "x-gnome-terminal-provider.default" dá exit=2 e nada
+  #     é registrado.
   GHOSTTY_DESKTOP=/usr/share/applications/com.mitchellh.ghostty.desktop
   if [ -f "$GHOSTTY_DESKTOP" ]; then
     if rpm_installed alternatives; then
-      update-alternatives --install /etc/alternatives/x-terminal-emulator \
-        x-terminal-emulator "$GHOSTTY_DESKTOP" 40 >/dev/null 2>&1
-      if [ -L /etc/alternatives/x-terminal-emulator ]; then
+      # O update-alternatives do Fedora exige que o link PRIMÁRIO do grupo
+      # x-terminal-emulator seja /usr/bin/zzz-c (o prefixo "zzz" ordena a
+      # preferência). Passar /etc/alternatives/... sai com 2 e a mensagem
+      # "the primary link for x-terminal-emulator must be /usr/bin/zzz-c".
+      #
+      # Este comando estava SEM try_warn e COM 2>&1: quando falhava, o set -e
+      # encerrava o script sem imprimir nada. Foi o que matou a execução no
+      # meio da fase 11, duas vezes, sem deixar rastro no log.
+      if try_warn update-alternatives --install /usr/bin/zzz-c x-terminal-emulator \
+        "$GHOSTTY_DESKTOP" 40; then
         ok "x-terminal-emulator -> ghostty"
       else
-        warn "update-alternatives não criou /etc/alternatives/x-terminal-emulator"
+        warn "update-alternatives não registrou o ghostty como emulador de terminal"
       fi
     else
       warn "pacote 'alternatives' ausente — terminal padrão não registrado"
