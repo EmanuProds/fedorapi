@@ -21,6 +21,7 @@ kooha                              # captura de tela
 
 ## --- Navegadores ---
 zen-browser                        # COPR sneexy
+firefoxpwa                         # PWAsForFirefox: runtime para webapps PWA (Firefox/Zen)
 
 ## --- Jogos ---
 steam                              # RPM Fusion nonfree

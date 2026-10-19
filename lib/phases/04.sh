@@ -104,3 +104,20 @@ while IFS='|' read -r kind name url extra; do
       ;;
   esac
 done < <(grep -vE '^[[:space:]]*(#|$)' "$LISTS/phases.txt" | grep -v '|zip|')
+
+# FirefoxPWA: runtime para webapps PWA (Firefox/Zen)
+if rpm_installed firefoxpwa; then
+  as_user mkdir -p "$SUH/.local/share/firefoxpwa"
+  if [ ! -d "$SUH/.local/share/firefoxpwa/runtime" ]; then
+    try_warn run_spin "instalando runtime do FirefoxPWA" as_user firefoxpwa runtime install
+  else
+    ok "FirefoxPWA: runtime já instalado — pulando"
+  fi
+  # Aviso para restaurar backup das sessões dos webapps
+  if [ -t 0 ]; then
+    printf '\n%s[FirefoxPWA]%s Restaure manualmente o backup de ~/.local/share/firefoxpwa (runtime + sites/sessões) se disponível. Pressione Enter para continuar...' "$C_BLU" "$C_OFF" >&3
+    read -r _ </dev/tty 2>/dev/null || true
+  fi
+else
+  warn "firefoxpwa não instalado — runtime não configurado"
+fi
