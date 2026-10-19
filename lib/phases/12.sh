@@ -187,14 +187,14 @@ while IFS='|' read -r kind name url extra; do
   rm -f "/tmp/$name.zip"; ok "$name: zip aplicado"
 done < <(grep -vE '^[[:space:]]*(#|$)' "$LISTS/phases.txt")
 
-# marksman LSP (binário do GitHub)
-if [ ! -x "$SUH/.local/bin/marksman" ]; then
-  try_warn run_spin "baixando marksman" curl -fsSL "https://github.com/artempyanykh/marksman/releases/latest/download/marksman-linux" -o "$SUH/.local/bin/marksman"
-  chmod +x "$SUH/.local/bin/marksman" 2>/dev/null || true
-  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.local/bin/marksman" 2>/dev/null || true
-  if [ -x "$SUH/.local/bin/marksman" ]; then ok "marksman instalado"; else warn "marksman não instalado"; fi
+# markdown-oxide LSP (Rust, binário do GitHub)
+if [ ! -x "$SUH/.local/bin/markdown-oxide" ]; then
+  try_warn run_spin "baixando markdown-oxide" curl -fsSL "https://github.com/Feel-ix-343/markdown-oxide/releases/latest/download/markdown-oxide-x86_64-unknown-linux-gnu" -o "$SUH/.local/bin/markdown-oxide"
+  chmod +x "$SUH/.local/bin/markdown-oxide" 2>/dev/null || true
+  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.local/bin/markdown-oxide" 2>/dev/null || true
+  if [ -x "$SUH/.local/bin/markdown-oxide" ]; then ok "markdown-oxide instalado"; else warn "markdown-oxide não instalado"; fi
 else
-  ok "marksman já instalado — pulando"
+  ok "markdown-oxide já instalado — pulando"
 fi
 
 ok "customization concluída"
