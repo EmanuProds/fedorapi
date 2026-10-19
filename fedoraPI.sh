@@ -940,15 +940,27 @@ else
   warn "titlebar patch não aplicado — rodará no próximo upgrade do opencode"
 fi
 
-# OpenCode Desktop (app oficial em .rpm, pelo processo do site opencode.ai/download)
-if ! rpm -q opencode-desktop >/dev/null 2>&1; then
-  desk_url=$(curl -fsSL "https://api.github.com/repos/anomalyco/opencode/releases/latest" \
-    | grep -oE '"browser_download_url": *"[^"]+"' | cut -d'"' -f4 \
-    | grep -E 'opencode-desktop-linux-x86_64\.rpm$' | head -1 || true)
-  [ -n "$desk_url" ] && try_warn dnf install -y "$desk_url" \
-    || warn "opencode-desktop: asset .rpm x86_64 não achado no release"
+# OpenCode Desktop (app oficial em .rpm, pelo processo do site opencode.ai/download).
+# O NOME DO PACOTE É 'opencode', não 'opencode-desktop': o 'rpm -q
+# opencode-desktop' que estava aqui nunca batia, então o script tentava
+# reinstalar o app a cada run. (E cuidado: o repo Terra também tem um pacote
+# chamado 'opencode' — que é a CLI, /usr/bin/opencode. Instalar pelo
+# arquivo .rpm do release evita a colisão.)
+# URL estável que aponta sempre para o Linux mais novo (segue o major do
+# site): devolve o .rpm da linha corrente (v2 hoje).
+readonly OPENCODE_DESKTOP_URL="https://opencode.ai/update/api/latest/desktop/opencode/opencode-desktop-linux-x86_64.rpm"
+_desk_ver="$(rpm -q --qf '%{VERSION}' opencode 2>/dev/null || true)"
+if [ -z "$_desk_ver" ]; then
+  try_warn dnf install -y "$OPENCODE_DESKTOP_URL"
+  ok "opencode desktop (rpm) instalado: $(rpm -q opencode 2>/dev/null || echo FALHOU)"
+elif [ "$_desk_ver" -ge 2 ] 2>/dev/null; then
+  # já está na linha 2.x: o próprio app se atualiza (/update) e o dnf não
+  # tem repositório do upstream, então reinstalar aqui só gastaria banda
+  ok "opencode desktop $_desk_ver já instalado (atualiza sozinho via /update)"
 else
-  ok "opencode-desktop já instalado — pulando"
+  # 1.x -> 2.x: o dnf substitui o pacote 'opencode' pelo novo, mesmo nome
+  try_warn dnf install -y "$OPENCODE_DESKTOP_URL"
+  ok "opencode desktop $_desk_ver -> $(rpm -q opencode 2>/dev/null || echo FALHOU)"
 fi
 
 # omniroute: gateway de IA. Instala global via npm (mise) e cria unit de usuário
@@ -1618,24 +1630,18 @@ while IFS='|' read -r kind name url extra; do
       else warn "$name: asset não achado no release"; fi
       ;;
     appimage)
-      as_user mkdir -p "$SUH/Applications" "$SUH/.local/share/applications"
-      if curl -fsS --retry 2 "$url" -o /tmp/epic.appimage; then
-        install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" /tmp/epic.appimage "$SUH/Applications/$extra"
-        cat > "$SUH/.local/share/applications/epic-launcher.desktop" <<EOF
-[Desktop Entry]
-Name=Epic Games Launcher
-Exec=$SUH/Applications/$extra
-Type=Application
-Categories=Game;
-StartupNotify=true
-EOF
-        chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.local/share/applications/epic-launcher.desktop"
-        try_warn as_user update-desktop-database "$SUH/.local/share/applications"
-        ok "$name: AppImage nativo em ~/Applications (self-updater da EGLv2)"
+      # GearLever-style: o .appimage vai para ~/.appimages/ e o GearLever
+      # (instalado na fase 3) cuida de criar o .desktop, ícone e menu.
+      # Não criamos .desktop aqui — duplicaria o do GearLever e sobrescreveria
+      # a integração oficial dele a cada run.
+      as_user mkdir -p "$SUH/.appimages"
+      if curl -fsS --retry 2 "$url" -o "/tmp/$name.appimage"; then
+        install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")"           "/tmp/$name.appimage" "$SUH/.appimages/$extra"
+        ok "$name: AppImage em ~/.appimages/$extra (integre com GearLever)"
       else
         warn "$name: download falhou (checar conexao/endpoint)"
       fi
-      rm -f /tmp/epic.appimage
+      rm -f "/tmp/$name.appimage"
       ;;
     zip)
       curl -fsSL "$url" -o "/tmp/$name.zip"
