@@ -84,6 +84,49 @@ flatpak_appid() {
 service_enabled() { systemctl is-enabled "$1" >/dev/null 2>&1; }
 command_exists() { command -v "$1" >/dev/null 2>&1; }
 npm_global_installed() { "$SUH/.local/bin/mise" exec -- npm ls -g --depth=0 2>/dev/null | grep -q " $1@"; }
+# As chaves do sbctl estão REALMENTE gravadas no firmware? Confere por
+# fingerprint SHA1, e não pelo exit code do 'enroll-keys': o sbctl recusa
+# ("not in Setup Mode") justamente quando elas JÁ estão lá, então um exit
+# != 0 não significa falha. O 'export-enrolled-keys' precisa de
+# --disable-landlock porque o landlock do sbctl exige que o diretório de
+# saída já exista, e ele mesmo tentaria criá-lo.
+sbctl_keys_enrolled() {
+  # Dois quirks do sbctl (medidos na 0.19, COPR chenxiaolong):
+  #   1. --disable-landlock é obrigatório: com landlock o sbctl monta o
+  #      ruleset a partir do --dir e falha se ele ainda não existir;
+  #   2. mesmo sem landlock, ele ABORTA se o --dir já existir ("directory
+  #      already exists"). Por isso criamos só o diretório PAI e deixamos o
+  #      sbctl criar o FILHO.
+  local raiz tmp k a b exported
+  raiz=$(mktemp -d /var/tmp/sbctl-check-XXXXXX) || return 2
+  tmp="$raiz/export"
+  if ! sbctl --disable-landlock export-enrolled-keys --dir "$tmp" --format der >/dev/null 2>&1; then
+    rm -rf "$raiz"; return 2
+  fi
+  for k in PK KEK db; do
+    case "$k" in PK) d=PK ;; KEK) d=KEK ;; db) d=DB ;; esac
+    exported=$(find "$tmp/$d" -name '*.der' 2>/dev/null | head -1)
+    if [ -z "$exported" ] || [ ! -f "/var/lib/sbctl/keys/$k/$k.pem" ]; then
+      rm -rf "$raiz"; return 1
+    fi
+    a=$(openssl x509 -inform der -in "$exported" -noout -fingerprint -sha1 2>/dev/null | cut -d= -f2)
+    b=$(openssl x509 -in "/var/lib/sbctl/keys/$k/$k.pem" -noout -fingerprint -sha1 2>/dev/null | cut -d= -f2)
+    if [ -z "$a" ] || [ "$a" != "$b" ]; then rm -rf "$raiz"; return 1; fi
+  done
+  rm -rf "$raiz"; return 0
+}
+# A maquina tem Option ROM assinado em hardware (WiFi/GPU add-on)? Se tem,
+# o Secure Boot sobe com o firmware validando a assinatura da Option ROM —
+# e sem o certificado certo no db o dispositivo para de funcionar. O
+# sbctl.8 recomenda 'enroll-keys --microsoft' NESSES casos.
+sbctl_has_option_rom() {
+  local rom found=0
+  for rom in /sys/bus/pci/devices/*/rom; do
+    [ -e "$rom" ] || continue
+    [ -s "$rom" ] && { found=1; break; }
+  done
+  [ "$found" -eq 1 ]
+}
 # gopls vem do toolchain do mise (go), não do npm
 gopls_installed() { ls "$SUH/.local/share/mise/installs/go/"*/bin/gopls >/dev/null 2>&1; }
 # executa um comando como o usuário do sudo, com ambiente utilizável (bus da sessão, PATH)
@@ -1384,6 +1427,15 @@ fi
 #   4. mostra o estado. LIGAR o Secure Boot é passo manual na BIOS do Lenovo
 #      (o script não alcança o firmware): se estiver desligado NÃO é erro —
 #      o sistema só não está validando as assinaturas.
+#
+# ORDEM CORRETA (medida nesta máquina, Lenovo IdeaPad 3 15ALC6):
+#   Setup Mode -> chaves cadastradas -> Setup Mode DESLIGA sozinho
+#   -> Secure Boot LIGADO na BIOS.
+# Ou seja, depois do primeiro cadastro o Setup Mode NUNCA mais fica ativo, e
+# o 'sbctl enroll-keys' passa a recusar com "Your system is not in Setup Mode"
+# — recusa que é proteção, não erro. Por isso o veredito aqui sai do
+# FINGERPRINT das chaves no firmware (sbctl_keys_enrolled), nunca do exit
+# code do enroll-keys.
 if ! command -v sbctl >/dev/null 2>&1; then
   try_warn dnf copr enable -y chenxiaolong/sbctl
   try_warn dnf install -y sbctl
@@ -1398,15 +1450,34 @@ if command -v sbctl >/dev/null 2>&1; then
   # grava as chaves nas variáveis EFI; em Setup Mode isso apenas prepara o
   # firmware. Se a máquina não for EFI (sem /sys/firmware/efi/efivars), pula.
   if [ -d /sys/firmware/efi/efivars ]; then
-    # sbctl falha quando a máquina já saiu do Setup Mode ("Your system is not
-    # in Setup Mode!") — e nesse caso as chaves JÁ estão enrolled. Só trate
-    # como falha se a mensagem for outra coisa.
-    if _out=$(sbctl enroll-keys 2>&1); then
-      ok "chaves enrolled nas variáveis EFI (Setup Mode agora desativado)"
-    elif printf '%s' "$_out" | grep -q "not in Setup Mode"; then
-      ok "chaves já enrolled (máquina já saiu do Setup Mode) — nada a fazer"
+    # O veredito vem do FINGERPRINT das chaves no firmware, não do exit code
+    # do enroll-keys: o sbctl recusa com "Your system is not in Setup Mode"
+    # justamente quando as chaves já estão gravadas (Setup Mode desliga
+    # sozinho depois do primeiro cadastro), e esse recusão é proteção contra
+    # sobrescrever chaves boas.
+    if sbctl_keys_enrolled; then
+      ok "chaves PK/KEK/db confirmadas no firmware por fingerprint SHA1"
     else
-      warn "sbctl enroll-keys falhou: ${_out}"
+      _rc=0
+      if _out=$(sbctl enroll-keys 2>&1); then
+        ok "chaves enrolled nas variáveis EFI"
+      else
+        _rc=$?
+        if printf '%s' "$_out" | grep -q "not in Setup Mode"; then
+          # Setup Mode desligado mas fingerprint diferente: há chaves de outro
+          # dono no firmware. Só o Setup Mode (BIOS) resolve.
+          warn "Setup Mode desligado com chaves de outro dono no firmware — para"
+          warn "  trocar as chaves, entre na BIOS e apague as chaves de plataforma"
+          warn "  (deixe o Secure Boot ligado), depois rode 'sbctl enroll-keys'"
+        elif printf '%s' "$_out" | grep -qi "immutable"; then
+          warn "variáveis EFI imutáveis (chattr +i): o sbctl não pode gravar"
+          warn "  as chaves. Se faltarem chaves, use a BIOS ou 'sbctl reset'"
+        else
+          warn "sbctl enroll-keys falhou (exit $_rc): ${_out}"
+        fi
+      fi
+      # confere de novo: se agora bate, o cadastro deu certo mesmo com aviso
+      sbctl_keys_enrolled && ok "chaves confirmadas no firmware após o cadastro" || true
     fi
   else
     warn "sem /sys/firmware/efi/efivars — máquina não está em UEFI, chaves não enrolled"
@@ -1432,7 +1503,22 @@ if command -v sbctl >/dev/null 2>&1; then
   # sb_line já vem como "Secure Boot:\tEnabled" — prefixar de novo duplicava.
   ok "Secure Boot: $(printf '%s' "${sb_line:-estado desconhecido}" | tr -s '\t' ' ' | sed 's/^Secure Boot: *//; s/^$/estado desconhecido/')"
   if ! printf '%s' "$sb_line" | grep -q '✓'; then
-    warn "Secure Boot continua DESLIGADO — ative na BIOS do Lenovo (Security > Secure Boot) e reinicie"
+    # O script NÃO alcança o firmware: ligar o Secure Boot é passo manual.
+    # No LenovoIdeaPad 3 15ALC6: F2 (ou Fn+F2) na partida → Security →
+    # Secure Boot → Enabled → F10 para salvar.
+    warn "Secure Boot continua DESLIGADO (chaves prontas, faltou o interruptor)"
+    warn "  Lenovo IdeaPad 3 15ALC6: reinicie e aperte F2 (Fn+F2) → Security →"
+    warn "  Secure Boot → Enabled → F10. Sem Setup Mode antes disso: as chaves já"
+    warn "  estão cadastradas e o firmware valida a cadeia inteira."
+    # Option ROM: só é problema se algum dispositivo tiver ROM assinado em
+    # hardware. Sem nenhum, a cadeia shim->grub->kernel basta.
+    if sbctl_has_option_rom; then
+      warn "  há Option ROM em hardware (PCI): se o Secure Boot travar algum"
+      warn "  dispositivo, rode 'sbctl enroll-keys --microsoft' após entrar em"
+      warn "  Setup Mode pela BIOS."
+    else
+      ok "  nenhum dispositivo PCI com Option ROM — cadeia shim->grub->kernel suficiente"
+    fi
   fi
 else
   warn "sbctl não instalado — Secure Boot não configurado (veja o log acima)"
