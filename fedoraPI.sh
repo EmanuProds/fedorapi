@@ -856,9 +856,9 @@ as_user systemctl --user daemon-reload || true
 try_warn as_user systemctl --user enable --now accent-sync.path
 
 # titlebar patch: systemd system (PathChanged=/opt/OpenCode/resources/app.asar)
-# Wrappados em try_warn: pkexec pede senha interativamente; se falhar (ex.: cancelado),
+# Wrappados em try_warn: sudo pede senha; se falhar (ex.: cancelado/non-interativo),
 # o script não deve abortar — o serviço será criado no próximo run.
-try_warn pkexec tee /etc/systemd/system/opencode-titlebar-patch.service <<'EOF'
+try_warn sudo tee /etc/systemd/system/opencode-titlebar-patch.service <<'EOF'
 [Unit]
 Description=Reaplica o patch de title bar do OpenCode Desktop
 After=network-online.target
@@ -868,7 +868,7 @@ Type=oneshot
 ExecStart=%h/.local/bin/opencode-desktop-titlebar-patch-wrapper
 RemainAfterExit=no
 EOF
-try_warn pkexec tee /etc/systemd/system/opencode-titlebar-patch.path <<'EOF'
+try_warn sudo tee /etc/systemd/system/opencode-titlebar-patch.path <<'EOF'
 [Unit]
 Description=Dispara o patch quando o app.asar do OpenCode Desktop muda
 
@@ -879,10 +879,10 @@ Unit=opencode-titlebar-patch.service
 [Install]
 WantedBy=multi-user.target
 EOF
-try_warn pkexec systemctl daemon-reload
-try_warn pkexec systemctl enable --now opencode-titlebar-patch.path
+try_warn sudo systemctl daemon-reload
+try_warn sudo systemctl enable --now opencode-titlebar-patch.path
 # prova de vida: patch já aplicado?
-if pkexec "$SUH/.local/bin/opencode-desktop-titlebar-patch-wrapper" --check >/dev/null 2>&1; then
+if sudo "$SUH/.local/bin/opencode-desktop-titlebar-patch-wrapper" --check >/dev/null 2>&1; then
   ok "titlebar patch aplicado e serviço de monitoramento ativo"
 else
   warn "titlebar patch não aplicado — rodará no próximo upgrade do opencode"
