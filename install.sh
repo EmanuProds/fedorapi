@@ -12,7 +12,7 @@ PHASES=(
   "04:Pacotes dnf + opencode/omniroute/sunshine/runtime"
   "05:Codecs e aceleração de vídeo (Radeon)"
   "06:Virtualização (virt-manager + libvirt + qemu-kvm)"
-  "07:Serviços systemd + dnsmasq"
+  "07:Serviços systemd + tailscale"
   "08:Flathub + flatpaks"
   "09:Dotfiles (clone)"
   "10:GNOME (dconf)"
