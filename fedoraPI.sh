@@ -1497,6 +1497,11 @@ step "Restauração de backups (~/Downloads/backups/)"
 BACKUP_DIR="$SUH/Downloads/backups"
 if [ ! -d "$BACKUP_DIR" ]; then
   ok "pasta $BACKUP_DIR não existe — pulando"
+elif [ ! -t 0 ]; then
+  # Esta fase é interativa (read). Sem TTY o 'read' devolve 1 e o set -e
+  # encerraria o script inteiro — melhor pular com aviso.
+  warn "fase de backups é interativa e o stdin não é um TTY — pulando"
+  warn "rode o fedoraPI.sh num terminal para restaurar os zips"
 else
   shopt -s nullglob
   for zip in "$BACKUP_DIR"/*.zip; do
@@ -1544,7 +1549,7 @@ else
 
     # Seleção estilo checkbox (números separados por espaço)
     echo -n "Escolha itens para restaurar (ex.: 1 3 5, Enter=todos, q=pular): "
-    read -r sel
+    read -r sel || sel=""
     if [[ "$sel" =~ ^[qQ]$ ]]; then
       echo "Pulando $zip"
       rm -rf "$tmpd"
@@ -1587,12 +1592,12 @@ else
       fi
 
       echo -n "Destino para '$item' [$suggested]: "
-      read -r dest
+      read -r dest || dest=""
       dest="${dest:-$suggested}"
       dest="${dest/#\~/$SUH}"
 
       # Cria diretório pai se necessário
-      mkdir -p "$(dirname "$dest")"
+      try_warn mkdir -p "$(dirname "$dest")"
 
       # Move (usa rsync para preservar atributos e mostrar progresso)
       echo "Movendo $item -> $dest"
@@ -1604,8 +1609,11 @@ else
     done
 
     # Remove o zip original
-    rm -f "$zip"
-    ok "zip $zip removido"
+    if try_warn rm -f "$zip"; then
+      ok "zip $zip removido"
+    else
+      warn "não foi possível remover $zip (conferir permissões)"
+    fi
 
     # Limpa temp
     rm -rf "$tmpd"
