@@ -189,7 +189,8 @@ done < <(grep -vE '^[[:space:]]*(#|$)' "$LISTS/phases.txt")
 
 # markdown-oxide LSP (Rust, binário do GitHub)
 if [ ! -x "$SUH/.local/bin/markdown-oxide" ]; then
-  try_warn run_spin "baixando markdown-oxide" curl -fsSL "https://github.com/Feel-ix-343/markdown-oxide/releases/latest/download/markdown-oxide-x86_64-unknown-linux-gnu" -o "$SUH/.local/bin/markdown-oxide"
+  _md_url=$(curl -s "https://api.github.com/repos/Feel-ix-343/markdown-oxide/releases/latest" | python3 -c "import json,sys; d=json.load(sys.stdin); print([a['browser_download_url'] for a in d.get('assets',[]) if a['name'].endswith('x86_64-unknown-linux-gnu') and not a['name'].endswith('.tar.gz')][0])" 2>/dev/null)
+  try_warn run_spin "baixando markdown-oxide" curl -fsSL "$_md_url" -o "$SUH/.local/bin/markdown-oxide"
   chmod +x "$SUH/.local/bin/markdown-oxide" 2>/dev/null || true
   chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.local/bin/markdown-oxide" 2>/dev/null || true
   if [ -x "$SUH/.local/bin/markdown-oxide" ]; then ok "markdown-oxide instalado"; else warn "markdown-oxide não instalado"; fi

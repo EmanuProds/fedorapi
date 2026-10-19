@@ -2,6 +2,6 @@
 # O --allow-scripts é passado pelo fedoraPI.sh (npm 11.x bloqueia postinstall).
 @opencode/cli                        # CLI do OpenCode 2.x (o mesmo que o Desktop)
 prettier
-vtsls                                # TypeScript LSP (mais rápido que typescript-language-server)
+@vtsls/language-server               # TypeScript LSP (mais rápido que typescript-language-server)
 yaml-language-server
 gh-actions-language-server            # GitHub Actions LSP (wrapper do @actions/languageserver)
