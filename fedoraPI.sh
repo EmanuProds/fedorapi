@@ -1765,7 +1765,9 @@ else
         continue
       fi
 
-      # Sugestão de destino baseada no nome do item
+      # Sugestão de destino baseada no nome do item.
+      # $SUH é o home; nomes com acento/espaco (Área de trabalho) vêm do
+      # XDG e o script não deve inventar um caminho paralelo.
       if [ -d "$src" ]; then
         suggested="$SUH/$item"
       else
@@ -1774,10 +1776,29 @@ else
 
       echo -n "Destino para '$item' [$suggested]: "
       read -r dest || dest=""
-      dest="${dest:-$suggested}"
+      # Aspas no meio do texto: coladas ao caminho viravam parte do nome da
+      # pasta e o mkdir -p "$(dirname ...)" criava uma árvore lixo
+      # "./'/home/emanuel". Digitar "/caminho/com/espaco" funciona sem elas,
+      # mas coladas ("'/caminho'") não. Tiramos aspas sobrando nas pontas.
+      dest=$(printf '%s' "$dest" | tr -d "\"'")
+      # O script roda com IFS=$'\n\t', então o 'read' NÃO remove espaços:
+      # uma resposta de "   " (só espaços) passaria pelo teste -z e viraria
+      # uma pasta chamada com espaços. Corta as pontas explicitamente.
+      dest="${dest#"${dest%%[![:space:]]*}"}"
+      dest="${dest%"${dest##*[![:space:]]}"}"
+      # Tilde no início = home. Em pt-BR o nome real da pasta da área de
+      # trabalho é "Área de trabalho", não "Desktop" — o script não deve
+      # inventar um caminho paralelo.
       dest="${dest/#\~/$SUH}"
+      if [ -z "$dest" ]; then dest="$suggested"; fi
+      # Se o destino cair dentro de $SUH e for um subdiretório direto,
+      # provavelmente o usuário colou a barra final por engano.
+      dest="${dest%/}"
 
-      # Cria diretório pai se necessário
+      # Confere antes de criar: mostrar o caminho final evita surprise.
+      echo "  destino final: $dest"
+
+      # Cria diretório pai (dirname só do caminho já saneado)
       try_warn mkdir -p "$(dirname "$dest")"
 
       # Move (usa rsync para preservar atributos e mostrar progresso)
