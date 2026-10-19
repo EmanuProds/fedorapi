@@ -58,6 +58,14 @@ grep -q 'export GOPATH="\$HOME/.go"' "$CACHE/dotfiles/home/.bashrc" \
   || bad "dotfiles environment.d/go.conf ausente"
 [ -s "$CACHE/dotfiles/home/.config/ghostty/config" ] && ok "dotfiles ghostty" || bad "dotfiles ghostty ausente"
 [ -s "$CACHE/dotfiles/home/.config/zed/settings.json" ] && ok "dotfiles zed" || bad "dotfiles zed ausente"
+[ -s "$CACHE/dotfiles/home/.local/share/photogimp/GIMP/3.0/gimprc" ] && ok "dotfiles photogimp" || bad "dotfiles photogimp ausente"
+[ -s "$CACHE/dotfiles/home/.local/share/photogimp/GIMP/3.0/shortcutsrc" ] && ok "dotfiles photogimp shortcuts" || bad "dotfiles photogimp shortcuts ausente"
+[ -s "$CACHE/dotfiles/home/.local/share/themes/adw-inkscape/gtk-3.0/gtk.css" ] && ok "dotfiles adw-inkscape" || bad "dotfiles adw-inkscape ausente"
+[ -s "$CACHE/dotfiles/home/.config/inkscape/ui/style.css" ] && ok "dotfiles inkscape style.css" || bad "dotfiles inkscape style.css ausente"
+[ -s "$CACHE/dotfiles/home/.config/inkscape/preferences.xml" ] && ok "dotfiles inkscape preferences" || bad "dotfiles inkscape preferences ausente"
+! grep -q '/home/emanuel' "$CACHE/dotfiles/home/.config/inkscape/preferences.xml" \
+  && ok "dotfiles inkscape preferences sem path hardcoded" \
+  || bad "dotfiles inkscape preferences com path hardcoded"
 [ -s "$CACHE/dotfiles/dconf/gnome-settings.ini" ] && ok "dotfiles dconf dump" || bad "dconf dump ausente"
 ! grep -qiE 'password|secret|token|api_key' "$CACHE/dotfiles/dconf/gnome-settings.ini" \
   && ok "dconf sem secrets" || bad "dconf pode conter secrets"

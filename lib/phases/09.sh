@@ -20,6 +20,13 @@ if [ -d "$CLONES/dotfiles/home/.local/share/icons" ]; then
   chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.local/share/icons"
   try_warn gtk-update-icon-cache -f "$SUH/.local/share/icons/hicolor"
 fi
+# Temas GTK customizados (adw-inkscape etc.)
+if [ -d "$CLONES/dotfiles/home/.local/share/themes" ]; then
+  install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.local/share/themes"
+  cp -a "$CLONES/dotfiles/home/.local/share/themes/." "$SUH/.local/share/themes/"
+  chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.local/share/themes"
+  ok "temas GTK do dotfiles instalados"
+fi
 chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config" "$SUH/.bashrc" "$SUH/.shell_aliases" 2>/dev/null || true
 if ! grep -q 'starship init bash' "$SUH/.bashrc" 2>/dev/null; then
   printf '\ncommand -v starship >/dev/null 2>&1 && eval "$(starship init bash)"\n' >> "$SUH/.bashrc"
