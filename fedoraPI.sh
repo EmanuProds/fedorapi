@@ -1130,7 +1130,16 @@ EOF
   try_warn systemctl enable set-min-free-mem.service
 fi
 try_warn systemctl restart set-min-free-mem.service
-ok "min_free_kbytes = 1% da RAM ($(awk '/MemTotal/ {printf \"%.0f\", $2 * 0.01}' /proc/meminfo) kB)"
+# O awk fica em aspas SIMPLES e as aspas internas sem escape: dentro de "$( )"
+# o \" vira barra invertida LITERAL e o awk morre com "barra invertida não é o
+# último caractere da linha". O valor já era setado certo pelo script acima —
+# era só a mensagem que saía vazia e derrubava o set -e.
+_min_free_kb=$(awk '/MemTotal/ {printf "%.0f", $2 * 0.01}' /proc/meminfo)
+if [ "${_min_free_kb:-0}" -gt 0 ] 2>/dev/null; then
+  ok "min_free_kbytes = 1% da RAM (${_min_free_kb} kB)"
+else
+  warn "não foi possível ler a RAM de /proc/meminfo — min_free_kbytes pode estar errado"
+fi
 
 # --- cache de shader (AMD/RADV) -------------------------------------- #
 # A GPU é a iGPU Radeon do 5500U, então vale o par AMD do shader-booster:
@@ -1389,8 +1398,16 @@ if command -v sbctl >/dev/null 2>&1; then
   # grava as chaves nas variáveis EFI; em Setup Mode isso apenas prepara o
   # firmware. Se a máquina não for EFI (sem /sys/firmware/efi/efivars), pula.
   if [ -d /sys/firmware/efi/efivars ]; then
-    try_warn sbctl enroll-keys
-    ok "chaves enrolled nas variáveis EFI (Setup Mode agora desativado)"
+    # sbctl falha quando a máquina já saiu do Setup Mode ("Your system is not
+    # in Setup Mode!") — e nesse caso as chaves JÁ estão enrolled. Só trate
+    # como falha se a mensagem for outra coisa.
+    if _out=$(sbctl enroll-keys 2>&1); then
+      ok "chaves enrolled nas variáveis EFI (Setup Mode agora desativado)"
+    elif printf '%s' "$_out" | grep -q "not in Setup Mode"; then
+      ok "chaves já enrolled (máquina já saiu do Setup Mode) — nada a fazer"
+    else
+      warn "sbctl enroll-keys falhou: ${_out}"
+    fi
   else
     warn "sem /sys/firmware/efi/efivars — máquina não está em UEFI, chaves não enrolled"
   fi
@@ -1412,7 +1429,8 @@ if command -v sbctl >/dev/null 2>&1; then
   # 'sbctl status' imprime "Secure Boot:\t✓ Enabled" ou "\t✗ Disabled" — o
   # ✓ é o único sinal confiável, porque "Disabled" contém "Enabled".
   sb_line=$(sbctl status 2>/dev/null | grep -E '^Secure Boot' | head -1 || true)
-  ok "Secure Boot: $(printf '%s' "${sb_line:-estado desconhecido}" | tr -s '\t' ' ')"
+  # sb_line já vem como "Secure Boot:\tEnabled" — prefixar de novo duplicava.
+  ok "Secure Boot: $(printf '%s' "${sb_line:-estado desconhecido}" | tr -s '\t' ' ' | sed 's/^Secure Boot: *//; s/^$/estado desconhecido/')"
   if ! printf '%s' "$sb_line" | grep -q '✓'; then
     warn "Secure Boot continua DESLIGADO — ative na BIOS do Lenovo (Security > Secure Boot) e reinicie"
   fi
