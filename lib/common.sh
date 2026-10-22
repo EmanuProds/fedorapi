@@ -48,7 +48,7 @@ flatpak_appid() {
 }
 service_enabled() { systemctl is-enabled "$1" >/dev/null 2>&1; }
 command_exists()  { command -v "$1" >/dev/null 2>&1; }
-npm_global_installed() { "$SUH/.local/bin/mise" exec -- npm ls -g --depth=0 2>/dev/null | grep -q " $1@"; }
+npm_global_installed() { "$SUH/.local/bin/mise" exec -- bun pm -g ls --depth=0 2>/dev/null | grep -q " $1@"; }
 omniroute_installed() { [ -x "$SUH/.local/share/mise/shims/omniroute" ] || command -v omniroute >/dev/null 2>&1; }
 gopls_installed() { ls "$SUH/.local/share/mise/installs/go/"*/bin/gopls >/dev/null 2>&1; }
 

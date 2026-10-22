@@ -25,6 +25,18 @@ fi
 
 if ! rpm_installed lazydocker; then try_warn run_spin "instalando lazydocker" dnf install -y lazydocker; else ok "lazydocker já instalado — pulando"; fi
 
+# Docker: garante que o usuário tenha acesso ao socket sem sudo
+if getent group docker >/dev/null 2>&1; then
+  if ! id -nG "$SUDO_USER" 2>/dev/null | grep -qw docker; then
+    usermod -aG docker "$SUDO_USER"
+    ok "docker: usuário $SUDO_USER adicionado ao grupo docker (requer logout/login)"
+  else
+    ok "docker: usuário já no grupo docker — pulando"
+  fi
+else
+  warn "docker: grupo 'docker' não existe — docker-ce não instalado?"
+fi
+
 # opencode desktop
 readonly OPENCODE_DESKTOP_URL="https://opencode.ai/update/api/latest/desktop/opencode/opencode-desktop-linux-x86_64.rpm"
 if rpm_installed opencode; then
@@ -34,11 +46,11 @@ else
   if rpm_installed opencode; then ok "opencode desktop instalado"; else warn "opencode desktop não instalado"; fi
 fi
 
-# omniroute (npm global, via mise)
+# omniroute (bun global, via mise)
 if omniroute_installed; then
   ok "omniroute já instalado — pulando"
 else
-  try_warn run_spin "instalando omniroute" as_user bash -c 'export PATH="$HOME/.local/bin:$PATH"; "$HOME/.local/bin/mise" exec -- npm i -g --allow-scripts=omniroute,keytar,onnxruntime-node,@parcel/watcher,@swc/core,protobufjs,esbuild omniroute && "$HOME/.local/bin/mise" reshim'
+  try_warn run_spin "instalando omniroute" as_user bash -c 'export PATH="$HOME/.local/bin:$PATH"; "$HOME/.local/bin/mise" exec -- bun add -g --allow-scripts=omniroute,keytar,onnxruntime-node,@parcel/watcher,@swc/core,protobufjs,esbuild omniroute && "$HOME/.local/bin/mise" reshim'
   if omniroute_installed; then ok "omniroute instalado"; else warn "omniroute não instalado"; fi
 fi
 

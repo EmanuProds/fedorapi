@@ -87,7 +87,7 @@ python3 -c "import json;json.load(open('$CACHE/dotfiles/opencode/config/opencode
   && ok "dotfiles opencode.json parse" || bad "dotfiles opencode.json invalido"
 ! grep -q '/home/emanuel' "$CACHE/dotfiles/opencode/config/opencode.json" \
   && ok "json oficial sem path hardcoded" || bad "json oficial com path hardcoded"
-! grep -qE '"(model|default_agent|agents|shell)"' "$CACHE/dotfiles/opencode/config/opencode.json" \
+! grep -qE '^[[:space:]]*"(model|default_agent|agents|shell)"[[:space:]]*:' "$CACHE/dotfiles/opencode/config/opencode.json" \
   && ok "json oficial sem model/agents/shell" || bad "json oficial tem model/agents/shell"
 grep -q '"skills"' "$CACHE/dotfiles/opencode/config/opencode.json" && ok "json com skills" || bad "skills ausente no json"
 grep -q '"lsp"' "$CACHE/dotfiles/opencode/config/opencode.json" && ok "json com lsp" || bad "lsp ausente no json"
@@ -95,13 +95,24 @@ grep -q '"lsp"' "$CACHE/dotfiles/opencode/config/opencode.json" && ok "json com 
   && ok "json aponta skills para ~/.agents/skills" || bad "json ainda aponta para opencode/skills"
 grep -q '"context7"' "$CACHE/dotfiles/opencode/config/opencode.json" && ok "mcp context7" || bad "context7 ausente"
 # o que NAO deve existir no repo de dotfiles
-for f in opencode/agents opencode/docs opencode/lib opencode/config/AGENTS.full.md \
-         opencode/config/opencode.pessoal.json opencode/skills; do
+for f in opencode/docs opencode/config/AGENTS.full.md \
+         opencode/config/opencode.pessoal.json opencode/skills opencode/secrets; do
   [ ! -e "$CACHE/dotfiles/$f" ] && ok "fora do repo: $f" || bad "$f ainda no repo dotfiles"
 done
 n_skills=$(ls "$CACHE/dotfiles/skills" 2>/dev/null | wc -l)
 [ "$n_skills" -ge 184 ] && ok "skills na raiz do repo ($n_skills >= 184)" || bad "skills ($n_skills/184)"
 [ -s "$CACHE/dotfiles/opencode/plugins/memory-store.ts" ] && ok "memory-store.ts" || bad "memory-store.ts ausente"
+[ -s "$CACHE/dotfiles/opencode/lib/jev-client.ts" ] && ok "jev-client.ts" || bad "jev-client.ts ausente (plugin de memoria nao carrega)"
+[ -s "$CACHE/dotfiles/opencode/plugins/scope-guard.ts" ] && ok "scope-guard.ts" || bad "scope-guard.ts ausente (sem portao de escopo)"
+[ -s "$CACHE/dotfiles/opencode/tests/scope-guard.test.ts" ] && ok "scope-guard.test.ts" || bad "scope-guard.test.ts ausente"
+[ -s "$CACHE/dotfiles/opencode/config/cli.json" ] && ok "cli.json" || bad "cli.json ausente"
+for a in core-impl core-review web-impl web-review db-impl db-review contracts-impl contracts-review; do
+  [ -s "$CACHE/dotfiles/opencode/agents/$a.md" ] && ok "agent $a" || bad "agent $a ausente"
+done
+grep -q '"permissions"' "$CACHE/dotfiles/opencode/config/opencode.json" && ok "json com permissions" || bad "permissions ausente no json"
+grep -q 'subagent_depth' "$CACHE/dotfiles/opencode/config/opencode.json" && ok "json com subagent_depth" || bad "subagent_depth ausente no json"
+grep -q 'opencode-plugin-v2' "$CACHE/dotfiles/opencode/config/opencode.json" && ok "json com plugin do omniroute" || bad "plugin do omniroute ausente no json"
+grep -q 'opencode-plugin-v2' "$CACHE/dotfiles/opencode/config/package.json" && ok "package.json com plugin do omniroute" || bad "plugin do omniroute ausente no package.json"
 [ -s "$CACHE/dotfiles/opencode/config/AGENTS.md" ] && ok "AGENTS.md slim" || bad "AGENTS.md slim ausente"
 [ -s "$CACHE/dotfiles/opencode/config/env.example" ] && ok "env.example" || bad "env.example ausente"
 [ ! -e "$CACHE/dotfiles/.env" ] && ok "sem .env real no dotfiles" || bad ".env REAL no dotfiles (SEGREDO)"

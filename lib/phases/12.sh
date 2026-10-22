@@ -14,10 +14,10 @@ else
 fi
 
 # OpenCode skeleton
-for d in commands plugins tests; do
+for d in agents commands lib plugins tests; do
   [ -d "$CLONES/dotfiles/opencode/$d" ] && cp -a "$CLONES/dotfiles/opencode/$d" "$SUH/.config/opencode/"
 done
-for f in opencode.json AGENTS.md env.example package.json; do
+for f in opencode.json cli.json AGENTS.md env.example package.json; do
   install -m 644 "$CLONES/dotfiles/opencode/config/$f" "$SUH/.config/opencode/$f"
 done
 install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.agents"
