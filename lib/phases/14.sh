@@ -202,10 +202,12 @@ EOF
   fi
   if grep -q "submenu 'Fedora Linux snapshots'" /boot/grub2/grub.cfg 2>/dev/null; then ok "submenu de snapshots no GRUB"
   else warn "grub.cfg sem submenu de snapshots"; fi
-  if grub2-editenv list 2>/dev/null | grep -q '^menu_auto_hide='; then
-    try_warn grub2-editenv - unset menu_auto_hide
-    ok "menu_auto_hide removido"
-  else ok "menu do GRUB já visível — pulando"; fi
+  # Mantém menu_auto_hide=1 (padrão Fedora: menu oculto, aparece com SHIFT/F8)
+  if ! grub2-editenv list 2>/dev/null | grep -q '^menu_auto_hide=1'; then
+    try_warn grub2-editenv - set menu_auto_hide=1
+    try_warn grub2-mkconfig -o /boot/grub2/grub.cfg
+    ok "menu_auto_hide=1 ativado (padrão Fedora)"
+  else ok "menu_auto_hide=1 já ativo — pulando"; fi
 else
   warn "grub-btrfs não instalado"
 fi
