@@ -1,20 +1,20 @@
-# Fase 1: repos de terceiros (Terra, RPM Fusion, COPRs, Docker CE).
+# Phase 1: third-party repos (Terra, RPM Fusion, COPRs, Docker CE).
 
 if [ -d /var/lib/dnf/offline/packages ] && [ -n "$(ls -A /var/lib/dnf/offline/packages 2>/dev/null)" ]; then
   try_warn dnf5 offline clean
 fi
 
 if grep -q '^max_parallel_downloads=15' /etc/dnf/dnf.conf 2>/dev/null && grep -q '^fastestmirror=True' /etc/dnf/dnf.conf 2>/dev/null; then
-  ok "dnf: tuning já aplicado — pulando"
+  ok "dnf: tuning already applied — skipping"
 else
   for kv in max_parallel_downloads=15 max_downloads_per_mirror=15 fastestmirror=True; do
     try_warn dnf config-manager setopt "$kv"
   done
-  ok "dnf: tuning aplicado"
+  ok "dnf: tuning applied"
 fi
 
 if rpm -q terra-release >/dev/null 2>&1; then
-  ok "terra-release já instalado — pulando"
+  ok "terra-release already installed — skipping"
 else
   dnf install -y --nogpgcheck --repofrompath "terra,https://repos.fyralabs.com/terra$FDC" terra-release terra-gpg-keys
 fi
@@ -29,4 +29,4 @@ for copr in sneexy/zen-browser rivenirvana/morewaita-icon-theme chronoscrat/star
 done
 
 [ -f /etc/yum.repos.d/docker-ce.repo ] || try_warn dnf config-manager addrepo --overwrite --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo >/dev/null 2>&1
-ok "repos prontos"
+ok "repos ready"

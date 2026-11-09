@@ -1,20 +1,20 @@
-# extensions.txt — os 17 UUIDs das extensões do GNOME Shell.
-# O fedoraPI.sh instala cada UUID via D-Bus do próprio GNOME Shell
-# (org.gnome.Shell.Extensions.InstallRemoteExtension) — sem pipx/gext.
-# O veredito é dado pela pasta em ~/.local/share/gnome-shell/extensions (a
-# resposta do D-Bus se perde quando o serviço de extensões sai).
+# extensions.txt — the 17 GNOME Shell extension UUIDs.
+# install.sh installs each UUID via the GNOME Shell D-Bus
+# (org.gnome.Shell.Extensions.InstallRemoteExtension) — no pipx/gext.
+# The verdict comes from the folder in ~/.local/share/gnome-shell/extensions (the
+# D-Bus reply is lost when the extensions service exits).
 adw-gtk3-colorizer@NiffirgkcaJ.github.com
 Bluetooth-Battery-Meter@maniacx.github.com
 caffeine@patapon.info
 center-window@mmc
-# gradia-integration@alexandervanhee.github.io   # 404 na loja (UUID inexistente, checado 17/10/2026)
+# gradia-integration@alexandervanhee.github.io   # 404 in the store (UUID does not exist, checked 2026-10-17)
 gsconnect@andyholmes.github.io
 gtk3-auto-dark@swsnr.de
 hide-universal-access@akiirui.github.io
 hotedge@jonathan.jdoda.ca
 just-perfection-desktop@just-perfection
 legacyschemeautoswitcher@joshimukul29.gmail.com
-# mosaicwm@cleomenezesjr.github.io               # 404 na loja (UUID inexistente, checado 17/10/2026)
+# mosaicwm@cleomenezesjr.github.io               # 404 in the store (UUID does not exist, checked 2026-10-17)
 rounded-window-corners@fxgn
 shotzy@SamkitJain660.github.io
 soft-brightness-plus@joelkitching.com

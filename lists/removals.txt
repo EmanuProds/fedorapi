@@ -1,5 +1,5 @@
-# removals.txt — bloatware que vem pré-instalado no Fedora, removido pelo
-# fedoraPI.sh (dnf remove -y). Comente uma linha para manter um pacote.
+# removals.txt — bloatware that ships pre-installed on Fedora, removed by
+# install.sh (dnf remove -y). Comment a line to keep a package.
 gnome-connections
 gnome-contacts
 gnome-tour

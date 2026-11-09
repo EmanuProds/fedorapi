@@ -1,26 +1,26 @@
-# phases.txt — instalações fora do dnf, tratadas pelas fases especiais do
-# fedoraPI.sh. Formato de cada linha: tipo|nome|URL|extra
-#   rpm      | nome | URL da API de releases do GitHub | regex do arquivo .rpm
-#   appimage | nome | URL de download                   | nome do arquivo em ~/Applications
-#   zip      | nome | URL de download                   | destino da descompactação
-#   sh       | nome | URL do script de instalação      | -
+# phases.txt — non-dnf installs handled by the special phases of
+# install.sh. Format of each line: type|name|URL|extra
+#   rpm      | name | GitHub releases API URL | .rpm file regex
+#   appimage | name | download URL            | filename in ~/Applications
+#   zip      | name | download URL            | extraction destination
+#   sh       | name | install script URL      | -
 #
-# Estas fases rodam no fim do script (fase 13/13).
+# These phases run at the end of the script (phase 13/13).
 
-# Sunshine: .rpm oficial do upstream para fc44 (não se autatualiza pelo dnf;
-# o topgrade pode buscar o rpm novo depois)
+# Sunshine: upstream official .rpm for fc44 (does not self-update via dnf;
+# topgrade can fetch the new rpm later)
 rpm|sunshine|https://api.github.com/repos/LizardByte/Sunshine/releases/latest|Sunshine-.*\.fc44\.x86_64\.rpm$
 
-# PWAsForFirefox: .rpm oficial do release (a extensão do navegador é instalada
-# depois, manualmente, pelo AMO)
+# PWAsForFirefox: official .rpm from the release (the browser extension is
+# installed later, manually, through AMO)
 rpm|firefoxpwa|https://api.github.com/repos/filips123/PWAsForFirefox/releases/latest|firefoxpwa-.*\.x86_64\.rpm$
 
-# Epic Games Launcher: AppImage Linux NATIVO (EGLv2, com atualizador próprio)
-# → ~/Applications + entrada no menu
+# Epic Games Launcher: NATIVE Linux AppImage (EGLv2, with its own updater)
+# → ~/Applications + menu entry
 appimage|epic|https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncher-x86_64.AppImage|EpicGamesLauncher.AppImage
 
-# JetBrains Mono Nerd (o pacote nerd-fonts do Terra não inclui o JetBrains Mono)
+# JetBrains Mono Nerd (Terra's nerd-fonts package does not include JetBrains Mono)
 zip|jetbrains-mono-nerd|https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip|fonts
 
-# LinuxToys: o instalador oficial tem suporte explícito ao Fedora
+# LinuxToys: the official installer has explicit Fedora support
 sh|linuxtoys|https://linux.toys/install.sh|-

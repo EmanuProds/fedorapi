@@ -1,4 +1,4 @@
-# Fase 10: dconf (GNOME). App Folders vêm do dotfiles.
+# Phase 10: dconf (GNOME). App Folders come from dotfiles.
 
 try_warn as_user dconf load / < "$CLONES/dotfiles/dconf/gnome-settings.ini"
-ok "dconf restaurado (app-folders vêm do dotfiles)"
+ok "dconf restored (app-folders come from dotfiles)"

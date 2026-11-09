@@ -1,116 +1,116 @@
-## --- Kernel e otimizações CachyOS (COPR bieszczaders) ---
-## cachyos-settings fica FORA daqui de propósito: ele fornece/obsoleta o
-## zram-generator-defaults e o dnf5 aborta o 'dnf install' quando os dois caem
-## na mesma transação ("solicitações conflitantes"). A troca é feita pelo
-## próprio script, na fase 3 (bloco "cola do kernel cachy").
-kernel-cachyos-lto                  # kernel BORE 1000 Hz + ThinLTO + NTSync + sched-ext (x86-64-v3 ✓ no 5500U)
-kernel-cachyos-lto-devel-matched    # headers do kernel, para compilar módulos DK
-scx-scheds                         # schedulers do sched-ext
-scx-tools                          # scxctl/scx_loader (controle dos schedulers)
-scx-manager                        # interface gráfica dos schedulers
-ananicy-cpp                        # daemon de prioridade automática
-cachyos-ananicy-rules              # regras de nice do CachyOS
-libdnf5-plugin-actions             # mantém o kernel cachy mais novo como boot padrão
+## --- CachyOS kernel and optimizations (bieszczaders COPR) ---
+## cachyos-settings is deliberately LEFT OUT of here: it provides/obsoletes
+## zram-generator-defaults and dnf5 aborts 'dnf install' when both land in the
+## same transaction ("conflicting requests"). The swap is done by the script
+## itself, in phase 3 (the "cachy kernel glue" block).
+kernel-cachyos-lto                  # BORE 1000 Hz kernel + ThinLTO + NTSync + sched-ext (x86-64-v3 ✓ on the 5500U)
+kernel-cachyos-lto-devel-matched    # kernel headers, to build DKMS modules
+scx-scheds                         # sched-ext schedulers
+scx-tools                          # scxctl/scx_loader (scheduler control)
+scx-manager                        # scheduler GUI
+ananicy-cpp                        # automatic priority daemon
+cachyos-ananicy-rules              # CachyOS nice rules
+libdnf5-plugin-actions             # keeps the newest cachy kernel as the default boot entry
 
-## --- Ferramentas Terra (repo fyralabs, atualização via dnf) ---
+## --- Terra tools (fyralabs repo, updated via dnf) ---
 ghostty                            # terminal
-zed                                # editor de código
-topgrade                           # atualizador unificado (dnf, flatpak, mise…)
-resources                          # monitor de sistema (GNOME)
-kooha                              # captura de tela
+zed                                # code editor
+topgrade                           # unified updater (dnf, flatpak, mise…)
+resources                          # system monitor (GNOME)
+kooha                              # screen capture
 
-## --- Navegadores ---
+## --- Browsers ---
 zen-browser                        # COPR sneexy
-firefoxpwa                         # PWAsForFirefox: runtime para webapps PWA (Firefox/Zen)
+firefoxpwa                         # PWAsForFirefox: runtime for PWA webapps (Firefox/Zen)
 
-## --- Jogos ---
+## --- Gaming ---
 steam                              # RPM Fusion nonfree
-steam-devices                      # alvos de controle (gamepad, controles remotos)
-gamemode                           # daemon de otimização para jogos
-gamescope                          # compositor para jogos (Focal/FXAA, VRR)
-mangohud                           # overlay de FPS no Vulkan/OpenGL
+steam-devices                      # controller targets (gamepad, remotes)
+gamemode                           # gaming optimization daemon
+gamescope                          # gaming compositor (Focal/FXAA, VRR)
+mangohud                           # FPS overlay in Vulkan/OpenGL
 
-## --- Wine e compatibilidade com Windows ---
-wine-core                          # habilita duplo clique em .exe/.msi no Nautilus
-wine-desktop                       # arquivos .desktop e integração de menu do Wine
-wine-arial-winefonts               # no Fedora as fontes do Wine são pacotes individuais
+## --- Wine and Windows compatibility ---
+wine-core                          # enables double-click on .exe/.msi in Nautilus
+wine-desktop                       # .desktop files and Wine menu integration
+wine-arial-winefonts               # on Fedora, Wine fonts are individual packages
 wine-courier-winefonts
 wine-fixedsys-winefonts
 wine-marlett-winefonts
 wine-ms-sans-serif-winefonts
 wine-small-winefonts
 wine-symbol-winefonts
-wine-pulseaudio                    # áudio via PipeWire/PulseAudio
-wine-mono                          # runtime .NET para programas Windows
-winetricks                        # instalador de dependências do Wine (winemenubuilder padrão)
+wine-pulseaudio                    # audio via PipeWire/PulseAudio
+wine-mono                          # .NET runtime for Windows programs
+winetricks                        # Wine dependency installer (default winemenubuilder)
 
-## --- Contêineres e virtualização ---
+## --- Containers and virtualization ---
 podman
 podman-compose
-docker-ce                          # repo oficial do Docker
+docker-ce                          # official Docker repo
 docker-ce-cli
 containerd.io
 docker-buildx-plugin
 docker-compose-plugin
-distrobox                         # containers como se fossem do sistema host
+distrobox                         # containers as if they were part of the host system
 
-## --- Disco, Btrfs e armazenamento ---
+## --- Disk, Btrfs and storage ---
 btrfs-progs
 btrfs-assistant
-snapper                            # snapshots do Btrfs
-btrbk                              # backup/snapshot de Btrfs (verificar na máquina)
-smartmontools                      # saúde dos discos (S.M.A.R.T.)
+snapper                            # Btrfs snapshots
+btrbk                              # Btrfs backup/snapshot (verify on the machine)
+smartmontools                      # disk health (S.M.A.R.T.)
 
-## --- Impressão e PDF ---
-cups                                # sistema de impressão
-cups-pdf                           # impressora virtual para gerar PDF
-gutenprint                         # drivers de impressoras (Gutenberg)
+## --- Printing and PDF ---
+cups                                # printing system
+cups-pdf                           # virtual printer that generates PDF
+gutenprint                         # printer drivers (Gutenberg)
 gutenprint-cups
-foomatic                           # motor do banco de dados de impressoras
+foomatic                           # printer database engine
 
-## --- Rede e compartilhamento ---
-samba                              # compartilhamento de arquivos (Windows)
+## --- Network and sharing ---
+samba                              # file sharing (Windows)
 samba-client
 
-## --- Gráficos, imagem e vídeo ---
+## --- Graphics, image and video ---
 gimp
 inkscape
 
-## --- Integração com o GNOME ---
-decibels                           # equalizador de áudio
-nautilus-python                    # extensão Python do Nautilus
-grilo-plugins                      # plugins de mídia do GNOME (fotos, vídeos)
-gnome-epub-thumbnailer             # miniaturas de .epub
-ffmpegthumbnailer                  # miniaturas de vídeo
+## --- GNOME integration ---
+decibels                           # audio equalizer
+nautilus-python                    # Nautilus Python extension
+grilo-plugins                      # GNOME media plugins (photos, videos)
+gnome-epub-thumbnailer             # .epub thumbnails
+ffmpegthumbnailer                  # video thumbnails
 
-## --- Ferramentas do sistema ---
-fastfetch                          # informações do sistema no terminal
-ddcutil                            # controle de brilho dos monitores (aliases m10..m100)
-earlyoom                           # evita OOM killer travando o desktop
-fuse                               # execução de AppImage
+## --- System tools ---
+fastfetch                          # system information in the terminal
+ddcutil                            # monitor brightness control (aliases m10..m100)
+earlyoom                           # prevents the OOM killer from freezing the desktop
+fuse                               # AppImage execution
 tesseract                          # OCR
-tesseract-langpack-por             # dados de OCR em português
-inotify-tools                      # watcher de arquivos
-icoutils                           # ícones dentro de executáveis
+tesseract-langpack-por             # Portuguese OCR data
+inotify-tools                      # file watcher
+icoutils                           # icons inside executables
 
-## --- Arquivos e compactação ---
-file-roller                        # gerenciador de arquivos
+## --- Files and compression ---
+file-roller                        # file manager
 7zip
 7zip
 7zip-standalone
 unrar                              # RPM Fusion nonfree
-cabextract                         # extrai .cab (pacotes de drivers)
+cabextract                         # extracts .cab (driver packages)
 zip
 
-## --- Desenvolvimento e mobile ---
+## --- Development and mobile ---
 android-tools                      # adb/fastboot
-jq                                 # consulta JSON na linha de comando
+jq                                 # JSON query on the command line
 wget2-wget
-git                                # necessário para o clone dos repos de dotfiles/scripts
+git                                # needed to clone the dotfiles/scripts repos
 dnf-plugins-core
 
-## --- Interface e temas ---
-morewaita-icon-theme               # COPR rivenirvana (ícones extras para o Adwaita)
-starship                           # COPR chronoscrat (prompt do shell)
-resources                          # COPR atim/resources (beta) — monitor de recursos
-adw-gtk3-theme                     # porta GTK3 do libadwaita (apps legados + flatpak)
+## --- Interface and themes ---
+morewaita-icon-theme               # COPR rivenirvana (extra icons for Adwaita)
+starship                           # COPR chronoscrat (shell prompt)
+resources                          # COPR atim/resources (beta) — resource monitor
+adw-gtk3-theme                     # GTK3 port of libadwaita (legacy apps + flatpak)

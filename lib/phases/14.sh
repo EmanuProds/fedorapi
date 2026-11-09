@@ -1,8 +1,8 @@
-# Fase 14: tuning (kernel cola + split-lock + lockdown + BBR3 + min_free + shader + ananicy + wifi + snapper + grub-btrfs + secure boot + fwupd).
+# Phase 14: tuning (cachy kernel glue + split-lock + lockdown + BBR3 + min_free + shader + ananicy + wifi + snapper + grub-btrfs + secure boot + fwupd).
 
 _f0=$FAIL_COUNT
 
-# cola do kernel cachy (movida de packages)
+# cachy kernel glue (moved out of packages)
 if ! rpm -q cachyos-settings >/dev/null 2>&1; then
   if rpm -q zram-generator-defaults >/dev/null 2>&1; then try_warn dnf swap -y zram-generator-defaults cachyos-settings
   else try_warn dnf install -y cachyos-settings; fi
@@ -14,32 +14,32 @@ cat > /etc/dnf/libdnf5-plugins/actions.d/cachy-default.actions <<'EOF'
 post_transaction:kernel*:in::/usr/bin/sh -c /usr/bin/grubby\ --set-default=/boot/$(ls\ /boot\ |\ grep\ vmlinuz.*cachy\ |\ sort\ -V\ |\ tail\ -1)
 EOF
 kdef=$(ls /boot 2>/dev/null | grep 'vmlinuz.*cachy' | sort -V | tail -1 || true)
-if [ -n "$kdef" ]; then try_warn grubby --set-default="/boot/$kdef"; ok "kernel default: $kdef"; else warn "nenhum kernel cachy em /boot"; fi
+if [ -n "$kdef" ]; then try_warn grubby --set-default="/boot/$kdef"; ok "default kernel: $kdef"; else warn "no cachy kernel in /boot"; fi
 
 # split-lock
 if grubby --info=ALL 2>/dev/null | grep -q 'split_lock_detect=off'; then
-  ok "split_lock_detect=off já aplicado — pulando"
+  ok "split_lock_detect=off already applied — skipping"
 else
   try_warn grubby --update-kernel=ALL --args="split_lock_detect=off"
-  ok "split_lock_detect=off aplicado"
+  ok "split_lock_detect=off applied"
 fi
 
 # lockdown
 if [ -e /sys/kernel/security/lockdown ]; then
-  if grep -qw 'integrity' /sys/kernel/security/lockdown 2>/dev/null; then ok "lockdown=integrity já ativo — pulando"
-  elif grubby --info=ALL 2>/dev/null | grep -qw 'lockdown=integrity'; then ok "lockdown=integrity no cmdline — pulando"
-  else try_warn grubby --update-kernel=ALL --args="lockdown=integrity"; ok "lockdown=integrity aplicado"; fi
-  warn "lockdown bloqueia módulos unsigned, kexec, perf e bpf"
+  if grep -qw 'integrity' /sys/kernel/security/lockdown 2>/dev/null; then ok "lockdown=integrity already active — skipping"
+  elif grubby --info=ALL 2>/dev/null | grep -qw 'lockdown=integrity'; then ok "lockdown=integrity in cmdline — skipping"
+  else try_warn grubby --update-kernel=ALL --args="lockdown=integrity"; ok "lockdown=integrity applied"; fi
+  warn "lockdown blocks unsigned modules, kexec, perf and bpf"
 else
-  warn "sem /sys/kernel/security/lockdown"
+  warn "no /sys/kernel/security/lockdown"
 fi
 
 # suspend-to-idle
 if grep -qw 'suspend_latency_idle=1' /proc/cmdline 2>/dev/null; then
-  ok "suspend-to-idle já aplicado — pulando"
+  ok "suspend-to-idle already applied — skipping"
 else
   try_warn grubby --update-kernel=ALL --args="suspend_latency_idle=1"
-  ok "suspend-to-idle ativado"
+  ok "suspend-to-idle enabled"
 fi
 
 # BBR3
@@ -51,8 +51,8 @@ net.ipv4.tcp_mtu_probing = 1
 EOF
 modprobe tcp_bbr3 2>/dev/null || true
 try_warn sysctl --system
-if [ "$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null)" = "bbr3" ]; then ok "BBR3 ativo + MTU probing ligado"
-else warn "BBR3 não ficou como congestion control"; fi
+if [ "$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null)" = "bbr3" ]; then ok "BBR3 active + MTU probing on"
+else warn "BBR3 did not stick as congestion control"; fi
 
 # min_free_kbytes
 cat > /usr/local/bin/set-min-free-mem.sh <<'EOF'
@@ -65,7 +65,7 @@ chmod 755 /usr/local/bin/set-min-free-mem.sh
 if [ ! -f /etc/systemd/system/set-min-free-mem.service ]; then
   cat > /etc/systemd/system/set-min-free-mem.service <<'EOF'
 [Unit]
-Description=Define vm.min_free_kbytes como 1% da RAM total
+Description=Sets vm.min_free_kbytes to 1% of total RAM
 DefaultDependencies=no
 After=local-fs.target
 Before=sysinit.target
@@ -82,29 +82,29 @@ EOF
 fi
 try_warn systemctl restart set-min-free-mem.service
 _min_free_kb=$(awk '/MemTotal/ {printf "%.0f", $2 * 0.01}' /proc/meminfo)
-if [ "${_min_free_kb:-0}" -gt 0 ] 2>/dev/null; then ok "min_free_kbytes = 1% da RAM (${_min_free_kb} kB)"
-else warn "não foi possível ler a RAM"; fi
+if [ "${_min_free_kb:-0}" -gt 0 ] 2>/dev/null; then ok "min_free_kbytes = 1% of RAM (${_min_free_kb} kB)"
+else warn "could not read RAM"; fi
 
 # shader cache
 if grep -q 'MESA_SHADER_CACHE_MAX_SIZE' /etc/environment 2>/dev/null; then
-  ok "cache de shader já configurado — pulando"
+  ok "shader cache already configured — skipping"
 else
   grep -q '^AMD_VULKAN_ICD=' /etc/environment 2>/dev/null || printf 'AMD_VULKAN_ICD=RADV\n' >> /etc/environment
   grep -q '^MESA_SHADER_CACHE_MAX_SIZE=' /etc/environment 2>/dev/null || printf 'MESA_SHADER_CACHE_MAX_SIZE=12G\n' >> /etc/environment
-  ok "cache de shader AMD ampliado para 12G"
+  ok "AMD shader cache enlarged to 12G"
 fi
 
 # ananicy
 if rpm_installed ananicy-cpp; then
-  if [ -d /etc/ananicy.d/00-default ]; then ok "ananicy-cpp com regras do CachyOS ativas"
-  else warn "ananicy-cpp instalado mas sem regras"; fi
-else warn "ananicy-cpp não instalado"; fi
+  if [ -d /etc/ananicy.d/00-default ]; then ok "ananicy-cpp with CachyOS rules active"
+  else warn "ananicy-cpp installed but without rules"; fi
+else warn "ananicy-cpp not installed"; fi
 
 # wifi
 if lspci 2>/dev/null | grep -qiE '10ec:c8(22|2f)'; then
   lsmod | grep -q '^rtw88_8822ce' || try_warn modprobe rtw88_8822ce
-  if lsmod | grep -q '^rtw88_8822ce'; then ok "WiFi Realtek 8822CE: driver nativo carregado"
-  else warn "WiFi 8822CE detectado mas o driver não carregou"; fi
+  if lsmod | grep -q '^rtw88_8822ce'; then ok "WiFi Realtek 8822CE: native driver loaded"
+  else warn "WiFi 8822CE detected but the driver did not load"; fi
 fi
 
 # snapper
@@ -119,12 +119,12 @@ if [ -f "$SNAPPER_CFG" ]; then
   set_snapper_kv EMPTY_PRE_POST_CLEANUP yes
   set_snapper_kv EMPTY_PRE_POST_MIN_AGE 0
   set_snapper_kv NUMBER_CLEANUP yes
-  ok "snapper: teto de 5, timeline desligado"
+  ok "snapper: cap of 5, timeline off"
 else
-  warn "sem /etc/snapper/configs/root"
+  warn "no /etc/snapper/configs/root"
 fi
 
-# hook dnf5
+# dnf5 hook
 cat > /usr/local/bin/snapper-dnf-hook.sh <<'HOOKEOF'
 #!/bin/bash
 set -u
@@ -137,21 +137,21 @@ snapshot_number() { printf '%s' "$1" | sed -n 's/.*uint32 \([0-9]\+\).*/\1/p'; }
 run_cleanup() {
   local n
   for n in 1 2 3; do snapper -c "$CFG" cleanup number 2>&1 && return 0; sleep 1; done
-  logger -t snapper-dnf-hook "aviso: cleanup number falhou"
+  logger -t snapper-dnf-hook "warning: cleanup number failed"
   return 1
 }
 case "${1:-}" in
   pre)
-    if out=$(snap_call org.opensuse.Snapper.CreatePreSnapshot "$CFG" "dnf: antes da transação" number "{}"); then
+    if out=$(snap_call org.opensuse.Snapper.CreatePreSnapshot "$CFG" "dnf: before transaction" number "{}"); then
       num=$(snapshot_number "$out"); [ -n "$num" ] && printf '%s' "$num" > "$PRE_FILE"
-      logger -t snapper-dnf-hook "pre-snapshot #$num criado"
-    else logger -t snapper-dnf-hook "falha ao criar pre-snapshot"; fi ;;
+      logger -t snapper-dnf-hook "pre-snapshot #$num created"
+    else logger -t snapper-dnf-hook "failed to create pre-snapshot"; fi ;;
   post)
     num=$(cat "$PRE_FILE" 2>/dev/null); [ -n "$num" ] || exit 0
-    if out=$(snap_call org.opensuse.Snapper.CreatePostSnapshot "$CFG" "$num" "dnf: depois da transação" number "{}"); then
-      post=$(snapshot_number "$out"); logger -t snapper-dnf-hook "post-snapshot #$post criado"
+    if out=$(snap_call org.opensuse.Snapper.CreatePostSnapshot "$CFG" "$num" "dnf: after transaction" number "{}"); then
+      post=$(snapshot_number "$out"); logger -t snapper-dnf-hook "post-snapshot #$post created"
       rm -f "$PRE_FILE"; run_cleanup
-    else logger -t snapper-dnf-hook "falha ao criar post-snapshot"; rm -f "$PRE_FILE"; fi ;;
+    else logger -t snapper-dnf-hook "failed to create post-snapshot"; rm -f "$PRE_FILE"; fi ;;
 esac
 exit 0
 HOOKEOF
@@ -161,9 +161,9 @@ pre_transaction:*:::/usr/local/bin/snapper-dnf-hook.sh pre
 post_transaction:*:::/usr/local/bin/snapper-dnf-hook.sh post
 ACTIONSEOF
 if [ -x /usr/local/bin/snapper-dnf-hook.sh ] && [ -f /etc/dnf/libdnf5-plugins/actions.d/10-snapper.actions ]; then
-  ok "hook de snapshot do dnf5 instalado"
+  ok "dnf5 snapshot hook installed"
 else
-  warn "hook de snapshot do dnf5 incompleto"
+  warn "dnf5 snapshot hook incomplete"
 fi
 
 # grub-btrfs
@@ -174,12 +174,12 @@ fi
 if rpm_installed grub-btrfs; then
   if ! snapper list-configs 2>/dev/null | grep -q '^root'; then
     try_warn snapper create-config /
-    ok "config 'root' do snapper criada"
-  else ok "config 'root' do snapper já existe — pulando"; fi
+    ok "snapper 'root' config created"
+  else ok "snapper 'root' config already exists — skipping"; fi
   if [ "$(snapper -c root list 2>/dev/null | grep -E 'single|pre|post' | grep -vc current)" -lt 1 ]; then
-    try_warn snapper -c root create --description "baseline fedoraPI.sh" --cleanup-algorithm number
-    ok "snapshot baseline criado"
-  else ok "snapshots do snapper já existem — pulando"; fi
+    try_warn snapper -c root create --description "baseline install.sh" --cleanup-algorithm number
+    ok "baseline snapshot created"
+  else ok "snapper snapshots already exist — skipping"; fi
   if [ ! -f /etc/systemd/system/grub-btrfs.path ]; then
     cat > /etc/systemd/system/grub-btrfs.path <<'EOF'
 [Unit]
@@ -194,28 +194,28 @@ Unit=grub-btrfs.service
 WantedBy=multi-user.target
 EOF
     try_warn systemctl daemon-reload
-    ok "grub-btrfs.path corrigido"
-  else ok "grub-btrfs.path já corrigido — pulando"; fi
+    ok "grub-btrfs.path fixed"
+  else ok "grub-btrfs.path already fixed — skipping"; fi
   try_warn systemctl enable --now grub-btrfs.path
   if try_warn cp -a /boot/grub2/grub.cfg "/boot/grub2/grub.cfg.bak-$(date +%Y%m%d-%H%M%S)"; then
     try_warn grub2-mkconfig -o /boot/grub2/grub.cfg
   fi
-  if grep -q "submenu 'Fedora Linux snapshots'" /boot/grub2/grub.cfg 2>/dev/null; then ok "submenu de snapshots no GRUB"
-  else warn "grub.cfg sem submenu de snapshots"; fi
-  # Mantém menu_auto_hide=1 (padrão Fedora: menu oculto, aparece com SHIFT/F8)
+  if grep -q "submenu 'Fedora Linux snapshots'" /boot/grub2/grub.cfg 2>/dev/null; then ok "snapshots submenu in GRUB"
+  else warn "grub.cfg without snapshots submenu"; fi
+  # Keep menu_auto_hide=1 (Fedora default: menu hidden, appears with SHIFT/F8)
   if ! grub2-editenv list 2>/dev/null | grep -q '^menu_auto_hide=1'; then
     try_warn grub2-editenv - set menu_auto_hide=1
     try_warn grub2-mkconfig -o /boot/grub2/grub.cfg
-    ok "menu_auto_hide=1 ativado (padrão Fedora)"
-  else ok "menu_auto_hide=1 já ativo — pulando"; fi
+    ok "menu_auto_hide=1 enabled (Fedora default)"
+  else ok "menu_auto_hide=1 already active — skipping"; fi
 else
-  warn "grub-btrfs não instalado"
+  warn "grub-btrfs not installed"
 fi
 
-# Secure Boot: pula se já está habilitado.
+# Secure Boot: skip if already enabled.
 _sb_status=$(sbctl status 2>/dev/null | grep -E '^Secure Boot' || true)
 if printf '%s' "$_sb_status" | grep -q '✓'; then
-  ok "Secure Boot já habilitado — fase pulada"
+  ok "Secure Boot already enabled — phase skipped"
 else
   if ! command -v sbctl >/dev/null 2>&1; then
     try_warn dnf copr enable -y chenxiaolong/sbctl
@@ -224,37 +224,37 @@ else
   if command -v sbctl >/dev/null 2>&1; then
     if [ ! -f /var/lib/sbctl/keys/db/db.pem ]; then
       try_warn sbctl create-keys
-      ok "chaves do Secure Boot criadas"
-    else ok "chaves do Secure Boot já existem — pulando"; fi
+      ok "Secure Boot keys created"
+    else ok "Secure Boot keys already exist — skipping"; fi
     if [ -d /sys/firmware/efi/efivars ]; then
       if sbctl_keys_enrolled; then
-        ok "chaves PK/KEK/db confirmadas no firmware"
+        ok "PK/KEK/db keys confirmed in firmware"
       else
-        if _out=$(sbctl enroll-keys 2>&1); then ok "chaves enrolled nas variáveis EFI"
+        if _out=$(sbctl enroll-keys 2>&1); then ok "keys enrolled in EFI variables"
         else
-          if printf '%s' "$_out" | grep -q "not in Setup Mode"; then warn "Setup Mode desligado com chaves de outro dono"
-          elif printf '%s' "$_out" | grep -qi "immutable"; then warn "variáveis EFI imutáveis"
-          else warn "sbctl enroll-keys falhou: ${_out}"; fi
+          if printf '%s' "$_out" | grep -q "not in Setup Mode"; then warn "Setup Mode off with keys owned by someone else"
+          elif printf '%s' "$_out" | grep -qi "immutable"; then warn "EFI variables are immutable"
+          else warn "sbctl enroll-keys failed: ${_out}"; fi
         fi
-        sbctl_keys_enrolled && ok "chaves confirmadas após cadastro" || true
+        sbctl_keys_enrolled && ok "keys confirmed after enrollment" || true
       fi
     else
-      warn "sem efivars — máquina não está em UEFI"
+      warn "no efivars — machine is not on UEFI"
     fi
     for f in /boot/vmlinuz-*; do [ -f "$f" ] || continue; try_warn sbctl sign -s "$f"; done
     for f in /boot/efi/EFI/*/*.efi /boot/efi/EFI/*/*.EFI /boot/efi/EFI/BOOT/*.efi; do [ -f "$f" ] || continue; try_warn sbctl sign -s "$f"; done
     unsigned=$(sbctl verify 2>/dev/null | grep -c 'not signed' || true)
-    if [ "${unsigned:-0}" -eq 0 ]; then ok "cadeia de boot inteira assinada"
-    else warn "$unsigned arquivo(s) da ESP sem assinatura"; fi
+    if [ "${unsigned:-0}" -eq 0 ]; then ok "entire boot chain signed"
+    else warn "$unsigned ESP file(s) unsigned"; fi
     sb_line=$(sbctl status 2>/dev/null | grep -E '^Secure Boot' | head -1 || true)
-    ok "Secure Boot: $(printf '%s' "${sb_line:-estado desconhecido}" | tr -s '\t' ' ' | sed 's/^Secure Boot: *//')"
+    ok "Secure Boot: $(printf '%s' "${sb_line:-unknown state}" | tr -s '\t' ' ' | sed 's/^Secure Boot: *//')"
     if ! printf '%s' "$sb_line" | grep -q '✓'; then
-      warn "Secure Boot continua DESLIGADO (chaves prontas, faltou o interruptor na BIOS)"
-      if sbctl_has_option_rom; then warn "há Option ROM em hardware PCI"
-      else ok "nenhum dispositivo PCI com Option ROM"; fi
+      warn "Secure Boot is still OFF (keys ready, the BIOS switch was not flipped)"
+      if sbctl_has_option_rom; then warn "there is an Option ROM on PCI hardware"
+      else ok "no PCI device with an Option ROM"; fi
     fi
   else
-    warn "sbctl não instalado"
+    warn "sbctl not installed"
   fi
 fi
 
@@ -265,23 +265,23 @@ if command -v fwupdmgr >/dev/null 2>&1; then
 import json, sys
 try: d = json.load(sys.stdin)
 except Exception: sys.exit(0)
-sai = []
+failing = []
 for a in d.get("SecurityAttributes", []):
     r, ok = str(a.get("HsiResult","")), str(a.get("HsiResultSuccess",""))
     if r and ok and r != ok:
-        sai.append(f"  - {a.get(chr(78)+chr(97)+chr(109)+chr(101))}: {r} (precisa: {ok})")
-print("\n".join(sai))
+        failing.append(f"  - {a.get(chr(78)+chr(97)+chr(109)+chr(101))}: {r} (needs: {ok})")
+print("\n".join(failing))
 ' 2>/dev/null)
     if [ -n "$_fw_txt" ]; then
-      ok "fwupd HSI: itens que ainda falham (firmware/hardware):"
+      ok "fwupd HSI: items still failing (firmware/hardware):"
       printf '%s\n' "$_fw_txt"
     else
-      ok "fwupd HSI: nenhum teste falhando"
+      ok "fwupd HSI: no failing tests"
     fi
   else
-    warn "fwupdmgr security --json não retornou nada"
+    warn "fwupdmgr security --json returned nothing"
   fi
 else
-  ok "fwupd não instalado"
+  ok "fwupd not installed"
 fi
-phase_end "$_f0" "tuning de kernel aplicado"
+phase_end "$_f0" "kernel tuning applied"

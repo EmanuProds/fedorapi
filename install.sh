@@ -6,25 +6,26 @@ IFS=$'\n\t'
 source "$(dirname -- "${BASH_SOURCE[0]}")/lib/common.sh"
 
 PHASES=(
-  "01:Repos de terceiros (Terra, RPM Fusion, COPRs, Docker CE)"
-  "02:Remoção de bloatware pré-instalado"
+  "01:Third-party repos (Terra, RPM Fusion, COPRs, Docker CE)"
+  "02:Removal of pre-installed bloatware"
   "03:Mise (node/bun/go/usage/pipx/gh)"
-  "04:Pacotes dnf + opencode/omniroute/sunshine/runtime"
-  "05:Codecs e aceleração de vídeo (Radeon)"
-  "06:Virtualização (virt-manager + libvirt + qemu-kvm)"
-  "07:Serviços systemd + tailscale"
+  "04:dnf packages + opencode/omniroute/sunshine/runtime"
+  "05:Codecs and video acceleration (Radeon)"
+  "06:Virtualization (virt-manager + libvirt + qemu-kvm)"
+  "07:systemd services + tailscale"
   "08:Flathub + flatpaks"
   "09:Dotfiles (clone)"
   "10:GNOME (dconf)"
-  "11:Extensões GNOME"
+  "11:GNOME extensions"
   "12:Customization (OpenCode + helpers + Plymouth + fonts)"
   "13:LSPs (npm) + gopls"
   "14:Tuning (kernel + split-lock + BBR3 + snapper + Secure Boot)"
   "15:GIMP PhotoGIMP + Inkscape (adw-inkscape)"
-  "16:GDM (login screen: escala de interface 125%)"
+  "16:GDM (login screen: 125% interface scaling)"
+  "17:Git (identity, SSH key and HTTPS credentials)"
 )
 
-step "Iniciando pós instalação customizada do Fedora $FDC (logs em: $LOG)"
+step "Starting custom Fedora $FDC post-install (logs at: $LOG)"
 
 for entry in "${PHASES[@]}"; do
   num="${entry%%:*}"
@@ -32,11 +33,11 @@ for entry in "${PHASES[@]}"; do
   if ask_phase "$num" "$desc"; then
     source "$SCRIPT_DIR/lib/phases/$num.sh"
   else
-    ok "Ignorado pelo usuário"
+    ok "Skipped by user"
   fi
 done
 
-step "Limpeza"
+step "Cleanup"
 rm -rf "$CLONES"
 try_warn flatpak uninstall -y --unused --system || true
-ok "Concluído :D — Recomendo fortemente que reinicie seu Fedora para efetivar as alterações!"
+ok "Done :D — I strongly recommend rebooting your Fedora to apply the changes!"

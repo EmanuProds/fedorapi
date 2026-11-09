@@ -10,10 +10,10 @@ Designed for **dnf5** (Fedora 41+) and the current stable release.
 
 ```
 fedorapi/
-├── fedoraPI.sh            # executor: sources lib/, prompts per phase
+├── install.sh             # runner: sources lib/, prompts per phase
 ├── lib/
 │   ├── common.sh          # helpers, logging, idempotency, ask_phase
-│   └── phases/            # one file per phase (01-repos.sh … 13-runtime.sh)
+│   └── phases/            # one file per phase (01.sh … 17.sh)
 ├── lists/                 # install lists (edit freely; read at run time)
 └── scripts/verify.sh      # oracle: gates, exit != 0 on any failure
 ```
@@ -29,7 +29,7 @@ chmod +x install.sh
 sudo ./install.sh
 ```
 
-The script is interactive: before each of the 14 phases it asks whether to run
+The script is interactive: before each of the 17 phases it asks whether to run
 it (10s timeout, auto-yes). Full log lands in `/tmp/fedorapi.log`.
 
 ## Validation

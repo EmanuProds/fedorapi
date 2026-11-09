@@ -6,23 +6,23 @@ sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-releas
 sudo dnf install https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 
 ## COPRs
-sudo dnf copr enable bieszczaders/kernel-cachyos-lto        # kernel CachyOS (BORE + ThinLTO + NTSync, x86-64-v3)
+sudo dnf copr enable bieszczaders/kernel-cachyos-lto        # CachyOS kernel (BORE + ThinLTO + NTSync, x86-64-v3)
 sudo dnf copr enable bieszczaders/kernel-cachyos-addons     # cachyos-settings, scx-scheds, ananicy-cpp…
-sudo dnf copr enable sneexy/zen-browser                     # navegador Zen
+sudo dnf copr enable sneexy/zen-browser                     # Zen browser
 sudo dnf copr enable atim/heroic-games-launcher              # Heroic (Epic/GOG)
-sudo dnf copr enable rivenirvana/morewaita-icon-theme       # MoreWaita (canal recomendado pelo upstream para Fedora)
-sudo dnf copr enable chronoscrat/starship                   # prompt do shell
+sudo dnf copr enable rivenirvana/morewaita-icon-theme       # MoreWaita (channel recommended by upstream for Fedora)
+sudo dnf copr enable chronoscrat/starship                   # shell prompt
 
-## Docker CE (decisão: repo do dnf, não pelo mise)
+## Docker CE (decision: dnf repo, not via mise)
 sudo dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
 
-## Cola do boot padrão do kernel CachyOS (feito pelo script):
+## CachyOS kernel default boot glue (done by the script):
 ## /etc/dnf/libdnf5-plugins/actions.d/cachy-default.actions ->
 ## post_transaction:kernel*:in::/usr/bin/sh -c /usr/bin/grubby\ --set-default=/boot/$(ls\ /boot\ |\ grep\ vmlinuz.*cachy\ |\ sort\ -V\ |\ tail\ -1)
 ## SELinux: setsebool -P domain_kernel_load_modules on
 
-## Outros
-## Tailscale: sem pacote nos repos do Fedora. O repo oficial é adicionado na
-## fase 5 (antes do 'enable --now' do tailscaled.service) — repo_gpgcheck ligado.
+## Other
+## Tailscale: no package in the Fedora repos. The official repo is added in
+## phase 5 (before the tailscaled.service 'enable --now') — repo_gpgcheck on.
 sudo dnf config-manager addrepo --from-repofile=https://pkgs.tailscale.com/stable/fedora/tailscale.repo
-sudo dnf install tailscale                                    # tailscaled (serviço vem de services.txt)
+sudo dnf install tailscale                                    # tailscaled (service comes from services.txt)

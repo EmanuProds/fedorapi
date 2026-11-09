@@ -1,4 +1,4 @@
-# Fase 7: serviços systemd.
+# Phase 7: systemd services.
 
 _f0=$FAIL_COUNT
 if ! command -v tailscale >/dev/null 2>&1; then
@@ -7,6 +7,6 @@ if ! command -v tailscale >/dev/null 2>&1; then
 fi
 while IFS= read -r svc; do
   [ -z "$svc" ] && continue
-  if service_enabled "$svc"; then ok "$svc já habilitado — pulando"; else try_warn systemctl enable --now "$svc"; fi
+  if service_enabled "$svc"; then ok "$svc already enabled — skipping"; else try_warn systemctl enable --now "$svc"; fi
 done < <(read_list "$LISTS/services.txt")
-phase_end "$_f0" "serviços habilitados"
+phase_end "$_f0" "services enabled"

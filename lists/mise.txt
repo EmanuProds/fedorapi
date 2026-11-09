@@ -1,4 +1,4 @@
-# mise.txt — toolchain instalada via mise (mise deve vir antes via dnf/curl)
+# mise.txt — toolchain installed via mise (mise must be present first via dnf/curl)
 node@lts
 bun@latest
 usage@latest
