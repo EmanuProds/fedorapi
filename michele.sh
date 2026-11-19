@@ -31,6 +31,8 @@ PHASES=(
   "05:Codecs and video acceleration (Radeon)"
   "07:systemd services + tailscale"
   "08:Flathub + flatpaks"
+  "09:Dotfiles (clone)"
+  "10:GNOME (dconf)"
   "11:GNOME extensions"
   "12:Customization (OpenCode + helpers + Plymouth + fonts)"
   "15:GDM (login screen: 125% interface scaling)"
