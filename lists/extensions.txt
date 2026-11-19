@@ -17,8 +17,6 @@ legacyschemeautoswitcher@joshimukul29.gmail.com
 # mosaicwm@cleomenezesjr.github.io               # 404 in the store (UUID does not exist, checked 2026-10-17)
 rounded-window-corners@fxgn
 shotzy@SamkitJain660.github.io
-soft-brightness-plus@joelkitching.com
 system-monitor@gnome-shell-extensions.gcampax.github.com
 tasks-in-panel@fthx
-tilingshell@ferrarodomenico.com
 touchpad@gpawru
