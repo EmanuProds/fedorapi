@@ -30,33 +30,33 @@ for v in 'e\[1;31m' 'e\[1;33m' 'e\[1;32m'; do
   grep -rqE "$v" "$R/lib" "$R/install.sh" && ok "color $v defined" || bad "color $v missing"
 done
 grep -rq 'VerticalAlignment' "$R/lib" "$R/install.sh" && ok "plymouth VerticalAlignment" || bad "plymouth tweak missing"
-# GDM: phase 16 must exist and apply the interface scale on the login screen
-[ -f "$R/lib/phases/16.sh" ] && ok "phase 16 (GDM)" || bad "phase 16 (GDM) missing"
-grep -q 'text-scaling-factor' "$R/lib/phases/16.sh" && ok "GDM applies text-scaling-factor" || bad "GDM without text-scaling-factor"
-grep -q '99-gdm-scale' "$R/lib/phases/16.sh" && ok "GDM keyfile 99- (beats the extension's 95-)" || bad "GDM keyfile 99- missing"
-grep -q 'monitors.xml' "$R/lib/phases/16.sh" && ok "GDM copies monitors.xml" || bad "GDM without monitors.xml copy"
-grep -q 'system-db:gdm' "$R/lib/phases/16.sh" && ok "GDM creates dconf profile" || bad "GDM without dconf profile"
-grep -q '"16:GDM' "$R/install.sh" && ok "install.sh registers phase 16" || bad "install.sh without phase 16"
+# GDM: phase 15 must exist and apply the interface scale on the login screen
+[ -f "$R/lib/phases/15.sh" ] && ok "phase 15 (GDM)" || bad "phase 15 (GDM) missing"
+grep -q 'text-scaling-factor' "$R/lib/phases/15.sh" && ok "GDM applies text-scaling-factor" || bad "GDM without text-scaling-factor"
+grep -q '99-gdm-scale' "$R/lib/phases/15.sh" && ok "GDM keyfile 99- (beats the extension's 95-)" || bad "GDM keyfile 99- missing"
+grep -q 'monitors.xml' "$R/lib/phases/15.sh" && ok "GDM copies monitors.xml" || bad "GDM without monitors.xml copy"
+grep -q 'system-db:gdm' "$R/lib/phases/15.sh" && ok "GDM creates dconf profile" || bad "GDM without dconf profile"
+grep -q '"15:GDM' "$R/install.sh" && ok "install.sh registers phase 15" || bad "install.sh without phase 15"
 # Phase 6: VM networking/firewall (masquerade + Docker/Tailscale forwarding + DNS)
 [ -f "$R/lib/phases/06.sh" ] && ok "phase 06 (virtualization)" || bad "phase 06 missing"
 grep -q 'masquerade' "$R/lib/phases/06.sh" && ok "phase 06: firewalld masquerade" || bad "phase 06 without masquerade"
 grep -q 'usermod -aG libvirt' "$R/lib/phases/06.sh" && ok "phase 06: user added to libvirt group" || bad "phase 06 without libvirt group"
 grep -q 'libvirt-vm-forward' "$R/lib/phases/06.sh" && ok "phase 06: libvirt-vm-forward persistence" || bad "phase 06 without libvirt-vm-forward"
 grep -q "forwarder addr" "$R/lib/phases/06.sh" && ok "phase 06: dnsmasq DNS forwarders" || bad "phase 06 without DNS forwarders"
-# Git: phase 17 asks the user for the global identity (no fixed value in the repo)
-[ -f "$R/lib/phases/17.sh" ] && ok "phase 17 (git)" || bad "phase 17 (git) missing"
-grep -q 'user.name' "$R/lib/phases/17.sh" && ok "git: asks for user.name" || bad "git without user.name"
-grep -q 'user.email' "$R/lib/phases/17.sh" && ok "git: asks for user.email" || bad "git without user.email"
-grep -q 'as_user git config --global' "$R/lib/phases/17.sh" \
+# Git: phase 16 asks the user for the global identity (no fixed value in the repo)
+[ -f "$R/lib/phases/16.sh" ] && ok "phase 16 (git)" || bad "phase 16 (git) missing"
+grep -q 'user.name' "$R/lib/phases/16.sh" && ok "git: asks for user.name" || bad "git without user.name"
+grep -q 'user.email' "$R/lib/phases/16.sh" && ok "git: asks for user.email" || bad "git without user.email"
+grep -q 'as_user git config --global' "$R/lib/phases/16.sh" \
   && ok "git: writes to SUDO_USER's ~/.gitconfig" || bad "git config without as_user"
-grep -q 'ssh-add' "$R/lib/phases/17.sh" && ok "git: adds the key to ssh-agent" || bad "git without ssh-add"
-grep -q 'ssh-agent -s' "$R/lib/phases/17.sh" && ok "git: starts ssh-agent when needed" || bad "git without ssh-agent -s"
-grep -q 'ssh -T.*git@github.com' "$R/lib/phases/17.sh" \
+grep -q 'ssh-add' "$R/lib/phases/16.sh" && ok "git: adds the key to ssh-agent" || bad "git without ssh-add"
+grep -q 'ssh-agent -s' "$R/lib/phases/16.sh" && ok "git: starts ssh-agent when needed" || bad "git without ssh-agent -s"
+grep -q 'ssh -T.*git@github.com' "$R/lib/phases/16.sh" \
   && ok "git: tests ssh -T git@github.com" || bad "git without ssh -T git@github.com test"
-grep -q 'git-credentials' "$R/lib/phases/17.sh" && ok "git: HTTPS credentials (~/.git-credentials)" || bad "git without ~/.git-credentials"
-grep -q 'credential.helper' "$R/lib/phases/17.sh" && ok "git: enables credential.helper store" || bad "git without credential.helper"
-grep -q '\[y/n\]' "$R/lib/phases/17.sh" && ok "git: asks the y/n credentials question" || bad "git without y/n question"
-grep -q '"17:Git' "$R/install.sh" && ok "install.sh registers phase 17" || bad "install.sh without phase 17"
+grep -q 'git-credentials' "$R/lib/phases/16.sh" && ok "git: HTTPS credentials (~/.git-credentials)" || bad "git without ~/.git-credentials"
+grep -q 'credential.helper' "$R/lib/phases/16.sh" && ok "git: enables credential.helper store" || bad "git without credential.helper"
+grep -q '\[y/n\]' "$R/lib/phases/16.sh" && ok "git: asks the y/n credentials question" || bad "git without y/n question"
+grep -q '"16:Git' "$R/install.sh" && ok "install.sh registers phase 16" || bad "install.sh without phase 16"
 ! grep -rq 'pip install' "$R/lib" "$R/install.sh" && ok "no pip install (PEP 668)" || bad "pip install present"
 for repo in "$DOTFILES" "$ACCENT" "$TITLEBAR"; do
   grep -rq "$repo" "$R/lib" "$R/install.sh" && ok "URL in the script: $(basename "$repo" .git)" \

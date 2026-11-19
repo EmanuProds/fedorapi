@@ -18,10 +18,10 @@ PHASES=(
   "10:GNOME (dconf)"
   "11:GNOME extensions"
   "12:Customization (OpenCode + helpers + Plymouth + fonts)"
-  "14:Tuning (kernel + split-lock + BBR3 + snapper + Secure Boot)"
-  "15:GIMP PhotoGIMP + Inkscape (adw-inkscape)"
-  "16:GDM (login screen: 125% interface scaling)"
-  "17:Git (identity, SSH key and HTTPS credentials)"
+  "13:Tuning (kernel + split-lock + BBR3 + snapper + Secure Boot)"
+  "14:GIMP PhotoGIMP + Inkscape (adw-inkscape)"
+  "15:GDM (login screen: 125% interface scaling)"
+  "16:Git (identity, SSH key and HTTPS credentials)"
 )
 
 step "Starting custom Fedora $FDC post-install (logs at: $LOG)"
