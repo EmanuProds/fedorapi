@@ -43,7 +43,7 @@ for entry in "${PHASES[@]}"; do
   num="${entry%%:*}"
   desc="${entry#*:}"
   if ask_phase "$num" "$desc"; then
-    source "$SCRIPT_DIR/lib/phases/$num.sh"
+    source "$SCRIPT_DIR/lib/phases/$num.sh" || warn "phase $num had errors (continuing)"
   else
     ok "Skipped by user"
   fi
@@ -52,12 +52,12 @@ done
 # Kernel CachyOS como padrao (sem tuning/snapper).
 step "Kernel CachyOS (default)"
 if ! rpm -q kernel-cachyos-lto >/dev/null 2>&1; then
-  try_warn dnf install -y kernel-cachyos-lto kernel-cachyos-lto-devel-matched
+  try_warn dnf install -y kernel-cachyos-lto kernel-cachyos-lto-devel-matched || true
 fi
 kdef=$(ls /boot 2>/dev/null | grep 'vmlinuz.*cachy' | sort -V | tail -1 || true)
-if [ -n "$kdef" ]; then try_warn grubby --set-default="/boot/$kdef"; ok "default kernel: $kdef"; else warn "no cachy kernel in /boot"; fi
+if [ -n "$kdef" ]; then try_warn grubby --set-default="/boot/$kdef" || true; ok "default kernel: $kdef"; else warn "no cachy kernel in /boot"; fi
 
 step "Cleanup"
-rm -rf "$CLONES"
+rm -rf "$CLONES" || true
 try_warn flatpak uninstall -y --unused --system || true
 ok "Done :D — reboot recommended!"
