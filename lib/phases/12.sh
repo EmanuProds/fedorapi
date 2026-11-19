@@ -76,6 +76,17 @@ else
 fi
 
 install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/accent-sync/accent-sync" "$SUH/.local/bin/accent-sync"
+
+# gtk-theme-sync (auto adwaita colors + icon-theme following accent)
+clone_repo "https://github.com/EmanuProds/gtk-theme-sync.git" "$CLONES/gtk-theme-sync"
+if [ -f "$CLONES/gtk-theme-sync/gtk_theme_sync.py" ]; then
+  install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/gtk-theme-sync/gtk_theme_sync.py" "$SUH/.local/bin/gtk-theme-sync"
+  install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.config/systemd/user"
+  install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/gtk-theme-sync/units/gtk-theme-sync.service" "$SUH/.config/systemd/user/"
+  as_user systemctl --user daemon-reload || true
+  try_warn as_user systemctl --user enable --now gtk-theme-sync.service
+  ok "gtk-theme-sync installed and enabled"
+fi
 install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/titlebar/opencode-desktop-titlebar-patch" "$SUH/.local/bin/opencode-desktop-titlebar-patch"
 install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" /dev/stdin "$SUH/.local/bin/opencode-desktop-titlebar-patch-wrapper" <<EOF
 #!/usr/bin/env bash
