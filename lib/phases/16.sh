@@ -42,14 +42,24 @@ try_warn dconf update
 ok "GDM: text-scaling-factor=${GDM_SCALING} applied"
 
 # --- greeter monitor layout ------------------------------------------------
-# The greeter does not read the user's ~/.config/monitors.xml: it uses the one
-# in gdm's home. Without copying it, the login screen ends up at a different
-# scale than the session.
+# GDM 49+ (Fedora 45) no longer uses the static gdm user: it spins up a
+# dynamic greeter user whose XDG_CONFIG_HOME is /var/lib/gdm/seat0/config.
+# The legacy /var/lib/gdm/.config path is kept for older GDM releases.
+# Without copying monitors.xml there, the login screen ends up at a different
+# scale/layout than the session.
 GDM_HOME="/var/lib/gdm"
 if [ -f "$SUH/.config/monitors.xml" ]; then
-  install -d -m 755 -o gdm -g gdm "$GDM_HOME/.config"
-  install -m 644 -o gdm -g gdm "$SUH/.config/monitors.xml" "$GDM_HOME/.config/monitors.xml"
-  ok "GDM: monitors.xml copied (greeter display scale = desktop)"
+  # legacy path
+  install -d -m 755 "$GDM_HOME/.config"
+  install -m 644 "$SUH/.config/monitors.xml" "$GDM_HOME/.config/monitors.xml"
+  chown gdm:gdm "$GDM_HOME/.config/monitors.xml" 2>/dev/null || chown root:root "$GDM_HOME/.config/monitors.xml"
+  # F45+ dynamic-user path
+  install -d -m 700 "$GDM_HOME/seat0/config"
+  install -m 644 "$SUH/.config/monitors.xml" "$GDM_HOME/seat0/config/monitors.xml"
+  chown root:root "$GDM_HOME/seat0/config/monitors.xml"
+  # global fallback (read by mutter regardless of the user)
+  install -m 644 "$SUH/.config/monitors.xml" /etc/xdg/monitors.xml
+  ok "GDM: monitors.xml copied (seat0/config + legacy + /etc/xdg)"
 else
   warn "GDM: \$SUH/.config/monitors.xml missing — greeter stays at the default scale"
 fi
