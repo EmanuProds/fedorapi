@@ -37,6 +37,12 @@ grep -q '99-gdm-scale' "$R/lib/phases/16.sh" && ok "GDM keyfile 99- (beats the e
 grep -q 'monitors.xml' "$R/lib/phases/16.sh" && ok "GDM copies monitors.xml" || bad "GDM without monitors.xml copy"
 grep -q 'system-db:gdm' "$R/lib/phases/16.sh" && ok "GDM creates dconf profile" || bad "GDM without dconf profile"
 grep -q '"16:GDM' "$R/install.sh" && ok "install.sh registers phase 16" || bad "install.sh without phase 16"
+# Phase 6: VM networking/firewall (masquerade + Docker/Tailscale forwarding + DNS)
+[ -f "$R/lib/phases/06.sh" ] && ok "phase 06 (virtualization)" || bad "phase 06 missing"
+grep -q 'masquerade' "$R/lib/phases/06.sh" && ok "phase 06: firewalld masquerade" || bad "phase 06 without masquerade"
+grep -q 'usermod -aG libvirt' "$R/lib/phases/06.sh" && ok "phase 06: user added to libvirt group" || bad "phase 06 without libvirt group"
+grep -q 'libvirt-vm-forward' "$R/lib/phases/06.sh" && ok "phase 06: libvirt-vm-forward persistence" || bad "phase 06 without libvirt-vm-forward"
+grep -q "forwarder addr" "$R/lib/phases/06.sh" && ok "phase 06: dnsmasq DNS forwarders" || bad "phase 06 without DNS forwarders"
 # Git: phase 17 asks the user for the global identity (no fixed value in the repo)
 [ -f "$R/lib/phases/17.sh" ] && ok "phase 17 (git)" || bad "phase 17 (git) missing"
 grep -q 'user.name' "$R/lib/phases/17.sh" && ok "git: asks for user.name" || bad "git without user.name"
