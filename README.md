@@ -29,7 +29,7 @@ chmod +x install.sh
 sudo ./install.sh
 ```
 
-The script is interactive: before each of the 17 phases it asks whether to run
+The script is interactive: before each phase it asks whether to run
 it (10s timeout, auto-yes). Full log lands in `/tmp/fedorapi.log`.
 
 ## Validation
