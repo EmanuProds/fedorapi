@@ -1,5 +1,35 @@
 # Phase 12: customization (OpenCode + helpers + Plymouth + fonts).
 
+# Ensure Topgrade updates OpenCode Desktop via the RPM updater (in-app updater
+# is broken on Fedora). Patch the user topgrade.toml installed from dotfiles.
+_TG="$SUH/.config/topgrade.toml"
+if [ -f "$_TG" ] && ! grep -q 'opencode-desktop-update' "$_TG"; then
+  sed -i '/^\[commands\]/a "OpenCode Desktop" = "opencode-desktop-update"' "$_TG"
+  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$_TG"
+  ok "topgrade: OpenCode Desktop custom command added"
+fi
+
+
+# Go: GOPATH/GOMODCACHE in ~/.go (global go from dnf).
+if command -v go >/dev/null 2>&1; then
+  as_user mkdir -p "$SUH/.go" "$SUH/.go/bin" "$SUH/.config/go" "$SUH/.config/environment.d"
+  if [ -d "$SUH/go" ]; then
+    as_user bash -c 'shopt -s dotglob nullglob; for f in "$HOME/go"/*; do [ -e "$f" ] && mv -f "$f" "$HOME/.go/"; done; rmdir "$HOME/go" 2>/dev/null || true'
+  fi
+  try_warn as_user go env -w GOPATH="$SUH/.go" GOMODCACHE="$SUH/.go/pkg/mod"
+  cat > "$SUH/.config/environment.d/go.conf" <<EOF
+# Go workspace in ~/.go (instead of the default ~/go)
+GOPATH=$SUH/.go
+GOMODCACHE=$SUH/.go/pkg/mod
+BASH_ENV=$SUH/.bashrc
+PATH=$SUH/.go/bin:\${PATH}
+EOF
+  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config/environment.d/go.conf"
+  printf 'GOMODCACHE=%s/.go/pkg/mod\nGOPATH=%s/.go\n' "$SUH" "$SUH" > "$SUH/.config/go/env"
+  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config/go/env"
+  ok "Go: GOPATH configured in ~/.go"
+fi
+
 # Plymouth tweak
 SPINNER_CONF="/usr/share/plymouth/themes/spinner/spinner.plymouth"
 if [ -f "$SPINNER_CONF" ] && grep -q '\[two-step\]' "$SPINNER_CONF"; then
@@ -24,7 +54,7 @@ install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.agents"
 install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.agents/skills"
 cp -a "$CLONES/dotfiles/skills/." "$SUH/.agents/skills/"
 chown -R "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config" "$SUH/.agents"
-run_spin "installing opencode dependencies" as_user "$SUH/.local/bin/mise" exec -- npm install --silent --prefix "$SUH/.config/opencode" || warn "opencode npm partial"
+run_spin "installing opencode dependencies" as_user bash -c 'export PATH="$HOME/.bun/bin:$PATH"; cd "$HOME/.config/opencode" && bun install --silent' || warn "opencode bun install partial"
 
 # accent-sync + titlebar helpers
 clone_repo "$ACCENT_SYNC_REPO" "$CLONES/accent-sync"
@@ -47,10 +77,10 @@ fi
 
 install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/accent-sync/accent-sync" "$SUH/.local/bin/accent-sync"
 install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/titlebar/opencode-desktop-titlebar-patch" "$SUH/.local/bin/opencode-desktop-titlebar-patch"
-install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" /dev/stdin "$SUH/.local/bin/opencode-desktop-titlebar-patch-wrapper" <<'EOF'
+install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" /dev/stdin "$SUH/.local/bin/opencode-desktop-titlebar-patch-wrapper" <<EOF
 #!/usr/bin/env bash
-export PATH="/home/emanuel/.local/share/mise/installs/node/lts/bin:$PATH"
-exec /home/emanuel/.local/bin/opencode-desktop-titlebar-patch "$@"
+export PATH="$SUH/.local/bin:\$PATH"
+exec "$SUH/.local/bin/opencode-desktop-titlebar-patch" "\$@"
 EOF
 install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.config/systemd/user"
 install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/accent-sync/units/"* "$SUH/.config/systemd/user/"

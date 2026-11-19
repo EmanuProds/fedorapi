@@ -38,19 +38,46 @@ else
 fi
 
 # opencode desktop
-readonly OPENCODE_DESKTOP_URL="https://opencode.ai/update/api/latest/desktop/opencode/opencode-desktop-linux-x86_64.rpm"
-if rpm_installed opencode; then
-  ok "opencode desktop already installed — skipping"
+# The desktop RPM ships as package 'opencode' 2.x and conflicts with the
+# Terra 'opencode' CLI package (1.x) + its bash-completion subpackage.
+# Remove the CLI first so the desktop install does not abort on the conflict.
+if rpm_installed opencode-bash-completion; then
+  try_warn dnf remove -y opencode-bash-completion
+fi
+if rpm_installed opencode && [ ! -x /opt/OpenCode/ai.opencode ]; then
+  # Installed 'opencode' is the old CLI (no desktop binary) — remove it.
+  try_warn dnf remove -y opencode
+fi
+
+# Resolve the latest desktop RPM URL from the upstream update API (the URL
+# embeds the version, so a hardcoded link goes stale).
+OPENCODE_DESKTOP_URL="$(curl -fsSL -A 'fedorapi/1' 'https://opencode.ai/update/api/latest/desktop/opencode/' \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['metadata']['files']['opencode-desktop-linux-x86_64.rpm']['url'])" 2>/dev/null || true)"
+if [ -z "${OPENCODE_DESKTOP_URL:-}" ]; then
+  warn "could not resolve the opencode desktop download URL — skipping"
 else
-  try_warn run_spin "installing opencode desktop" dnf install -y "$OPENCODE_DESKTOP_URL"
-  if rpm_installed opencode; then ok "opencode desktop installed"; else warn "opencode desktop not installed"; fi
+  if rpm_installed opencode && [ -x /opt/OpenCode/ai.opencode ]; then
+    ok "opencode desktop already installed — skipping"
+  else
+    try_warn run_spin "installing opencode desktop" dnf install -y "$OPENCODE_DESKTOP_URL"
+    if rpm_installed opencode && [ -x /opt/OpenCode/ai.opencode ]; then ok "opencode desktop installed"; else warn "opencode desktop not installed"; fi
+  fi
+fi
+
+# opencode desktop auto-updater (topgrade custom command). The in-app updater
+# is broken on Fedora, so updates go through /usr/local/bin/opencode-desktop-update.
+if [ -f "$SCRIPT_DIR/lib/opencode-desktop-update.sh" ]; then
+  install -m 0755 "$SCRIPT_DIR/lib/opencode-desktop-update.sh" /usr/local/bin/opencode-desktop-update
+  ok "opencode-desktop-update installed"
+else
+  warn "opencode-desktop-update.sh not found in fedorapi — skipping"
 fi
 
 # omniroute (bun global, via mise)
 if omniroute_installed; then
   ok "omniroute already installed — skipping"
 else
-  try_warn run_spin "installing omniroute" as_user bash -c 'export PATH="$HOME/.local/bin:$PATH"; "$HOME/.local/bin/mise" exec -- bun add -g --allow-scripts=omniroute,keytar,onnxruntime-node,@parcel/watcher,@swc/core,protobufjs,esbuild omniroute && "$HOME/.local/bin/mise" reshim'
+  try_warn run_spin "installing omniroute" as_user bash -c 'export PATH="$HOME/.bun/bin:$HOME/.local/bin:$PATH"; bun add -g --allow-scripts=omniroute,keytar,onnxruntime-node,@parcel/watcher,@swc/core,protobufjs,esbuild,sharp omniroute'
   if omniroute_installed; then ok "omniroute installed"; else warn "omniroute not installed"; fi
 fi
 
