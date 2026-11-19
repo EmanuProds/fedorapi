@@ -1,39 +1,48 @@
-# Phase 3: mise (node/bun/go/usage/pipx/gh).
+# Phase 3: mise (ready to use) + Bun (global) + Python/uv.
 
 _f0=$FAIL_COUNT
+# mise: install the binary only, ready to be used (no toolchains via mise).
 as_user bash -c 'curl -fsSL https://mise.run | sh' || warn "mise.run failed"
 if [ -x "$SUH/.local/bin/mise" ]; then
-  mapfile -t TOOLS < <(read_list "$LISTS/mise.txt")
-  [ "${#TOOLS[@]}" -gt 0 ] && try_warn as_user "$SUH/.local/bin/mise" use -g "${TOOLS[@]}"
+  ok "mise installed ($SUH/.local/bin/mise) — toolchains are managed by the user"
+  ln -sfn "$SUH/.local/bin/mise" /usr/local/bin/mise 2>/dev/null || true
 fi
-# shims for /usr/local/bin
+
+# Bun: global install (official installer) — mandatory runtime for node/npm/etc.
+if [ ! -x "$SUH/.bun/bin/bun" ]; then
+  try_warn run_spin "installing bun" as_user bash -c 'curl -fsSL https://bun.sh/install | bash'
+fi
+if [ -x "$SUH/.bun/bin/bun" ]; then
+  ln -sfn "$SUH/.bun/bin/bun" /usr/local/bin/bun 2>/dev/null || true
+  ln -sfn "$SUH/.bun/bin/bunx" /usr/local/bin/bunx 2>/dev/null || true
+  ok "bun installed ($SUH/.bun/bin/bun)"
+else
+  warn "bun not installed"
+fi
+
+# Python: system package (dnf) + uv (dnf) for global tooling.
+command -v python3 >/dev/null 2>&1 && ok "python3 available ($(python3 --version))" || warn "python3 not found"
+command -v uv >/dev/null 2>&1 && ok "uv available ($(uv --version))" || warn "uv not found (install via dnf)"
+
+
+# shims for /usr/local/bin (mise itself, if present)
 if [ -d "$SUH/.local/share/mise/shims" ]; then
-  for shim in npm node bun bunx gh go pipx omniroute; do
+  for shim in mise; do
     [ -e "$SUH/.local/share/mise/shims/$shim" ] || continue
     ln -sfn "$SUH/.local/share/mise/shims/$shim" "/usr/local/bin/$shim"
   done
   ok "mise shims exposed in /usr/local/bin"
 fi
 
-# Go: GOPATH/GOMODCACHE in ~/.go (not the default ~/go). Persisted via go env -w
-# (read by the go command in any context) + environment.d (systemd/PAM/ssh).
-if [ -x "$SUH/.local/bin/mise" ]; then
-  as_user mkdir -p "$SUH/.go" "$SUH/.go/bin" "$SUH/.config/go" "$SUH/.config/environment.d"
-  if [ -d "$SUH/go" ]; then
-    as_user bash -c 'shopt -s dotglob nullglob; for f in "$HOME/go"/*; do [ -e "$f" ] && mv -f "$f" "$HOME/.go/"; done; rmdir "$HOME/go" 2>/dev/null || true'
-    ok "Go: ~/go cache migrated to ~/.go"
+# Bun globals from npm.txt (opencode CLI, prettier, etc.) — bun is the mandatory runtime.
+if [ -x "$SUH/.bun/bin/bun" ] && [ -s "$LISTS/npm.txt" ]; then
+  mapfile -t BUNGS < <(read_list "$LISTS/npm.txt")
+  BUNGS_MISSING=()
+  for p in "${BUNGS[@]:-}"; do [ -z "$p" ] && continue; "$SUH/.bun/bin/bun" pm -g ls --depth=0 2>/dev/null | grep -q " $p@" || BUNGS_MISSING+=("$p"); done
+  if [ "${#BUNGS_MISSING[@]}" -gt 0 ]; then
+    try_warn run_spin "installing bun globals" as_user "$SUH/.bun/bin/bun" add -g --silent "${BUNGS_MISSING[@]}"
+  else
+    ok "bun globals already installed — skipping"
   fi
-  try_warn as_user "$SUH/.local/bin/mise" exec -- go env -w GOPATH="$SUH/.go" GOMODCACHE="$SUH/.go/pkg/mod"
-  cat > "$SUH/.config/environment.d/go.conf" <<EOF
-# Go workspace in ~/.go (instead of the default ~/go)
-GOPATH=$SUH/.go
-GOMODCACHE=$SUH/.go/pkg/mod
-BASH_ENV=$SUH/.bashrc
-PATH=$SUH/.go/bin:\${PATH}
-EOF
-  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config/environment.d/go.conf"
-  printf 'GOMODCACHE=%s/.go/pkg/mod\nGOPATH=%s/.go\n' "$SUH" "$SUH" > "$SUH/.config/go/env"
-  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.config/go/env"
-  ok "Go: GOPATH configured in ~/.go"
 fi
 phase_end "$_f0" "toolchains ready"

@@ -48,9 +48,9 @@ flatpak_appid() {
 }
 service_enabled() { systemctl is-enabled "$1" >/dev/null 2>&1; }
 command_exists()  { command -v "$1" >/dev/null 2>&1; }
-npm_global_installed() { "$SUH/.local/bin/mise" exec -- bun pm -g ls --depth=0 2>/dev/null | grep -q " $1@"; }
-omniroute_installed() { [ -x "$SUH/.local/share/mise/shims/omniroute" ] || command -v omniroute >/dev/null 2>&1; }
-gopls_installed() { ls "$SUH/.local/share/mise/installs/go/"*/bin/gopls >/dev/null 2>&1; }
+npm_global_installed() { "$SUH/.bun/bin/bun" pm -g ls --depth=0 2>/dev/null | grep -q " $1@"; }
+omniroute_installed() { [ -x "$SUH/.bun/bin/omniroute" ] || command -v omniroute >/dev/null 2>&1; }
+gopls_installed() { [ -x "$SUH/.go/bin/gopls" ] || command -v gopls >/dev/null 2>&1; }
 
 sbctl_keys_enrolled() {
   local tmp_root tmp k exported a b
@@ -80,7 +80,7 @@ as_user() {
   runuser -u "$SUDO_USER" -- env \
     HOME="$SUH" XDG_RUNTIME_DIR="/run/user/$UID_R" \
     DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$UID_R/bus" \
-    PATH="$SUH/.local/bin:$SUH/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin" \
+    PATH="$SUH/.bun/bin:$SUH/.local/bin:$SUH/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin" \
     "$@"
 }
 

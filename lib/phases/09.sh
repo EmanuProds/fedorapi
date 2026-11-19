@@ -62,13 +62,16 @@ if ! grep -q '^BASH_ENV=' /etc/environment 2>/dev/null; then
   printf 'BASH_ENV=%s/.bashrc\n' "$SUH" >> /etc/environment
   ok "BASH_ENV configured"
 fi
-if [ -d "$SUH/.local/share/mise/shims" ]; then
-  for shim in npm node bun bunx gh go pipx omniroute; do
-    [ -e "$SUH/.local/share/mise/shims/$shim" ] || continue
-    ln -sfn "$SUH/.local/share/mise/shims/$shim" "/usr/local/bin/$shim"
-  done
-  ok "mise shims exposed in /usr/local/bin"
+# Bun: ensure ~/.bun/bin is on PATH in the user shell.
+if ! grep -q '\.bun/bin' "$SUH/.bashrc" 2>/dev/null; then
+  printf '\nexport PATH="$HOME/.bun/bin:$PATH"\n' >> "$SUH/.bashrc"
+  chown "$SUDO_USER:$(id -gn "$SUDO_USER")" "$SUH/.bashrc"
+  ok "bun: PATH added to ~/.bashrc"
 fi
+# expose bun/bunx globally
+for shim in bun bunx; do
+  [ -x "$SUH/.bun/bin/$shim" ] && ln -sfn "$SUH/.bun/bin/$shim" "/usr/local/bin/$shim"
+done
 if [ -f /usr/lib/systemd/user/ssh-agent.socket ]; then
   try_warn as_user systemctl --user enable ssh-agent.socket
   ok "ssh-agent: socket enabled"

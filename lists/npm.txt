@@ -1,7 +1,4 @@
-# npm.txt — global packages via npm (all node managed by mise)
-# --allow-scripts is passed by install.sh (npm 11.x blocks postinstall).
+# npm.txt — global packages via bun (bun is the mandatory node/npm runtime)
+# --allow-scripts is passed by install.sh (bun/npm 11.x blocks postinstall).
 @opencode/cli                        # OpenCode 2.x CLI (same as the Desktop)
-prettier
-@vtsls/language-server               # TypeScript LSP (faster than typescript-language-server)
-yaml-language-server
-gh-actions-language-server            # GitHub Actions LSP (wrapper for @actions/languageserver)
+prettier                             # formatter used by Zed/OpenCode

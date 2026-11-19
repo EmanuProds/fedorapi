@@ -108,6 +108,8 @@ jq                                 # JSON query on the command line
 wget2-wget
 git                                # needed to clone the dotfiles/scripts repos
 dnf-plugins-core
+golang                             # Go toolchain (global)
+uv                                 # Python package/tool manager (global)
 
 ## --- Interface and themes ---
 morewaita-icon-theme               # COPR rivenirvana (extra icons for Adwaita)
