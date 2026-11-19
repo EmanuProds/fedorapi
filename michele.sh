@@ -51,6 +51,25 @@ for entry in "${PHASES[@]}"; do
   fi
 done
 
+# gtk-theme-sync + titlebar (clone + install), caso a phase 12 tenha sido pulada.
+step "gtk-theme-sync + titlebar"
+if [ ! -x "$SUH/.local/bin/gtk-theme-sync" ]; then
+  clone_repo "https://github.com/EmanuProds/gtk-theme-sync.git" "$CLONES/gtk-theme-sync" 2>/dev/null || true
+  if [ -f "$CLONES/gtk-theme-sync/gtk_theme_sync.py" ]; then
+    install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/gtk-theme-sync/gtk_theme_sync.py" "$SUH/.local/bin/gtk-theme-sync"
+    install -d -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$SUH/.config/systemd/user"
+    [ -f "$CLONES/gtk-theme-sync/units/gtk-theme-sync.service" ] && install -m 644 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/gtk-theme-sync/units/gtk-theme-sync.service" "$SUH/.config/systemd/user/"
+    as_user systemctl --user daemon-reload || true
+    try_warn as_user systemctl --user enable --now gtk-theme-sync.service
+  fi
+fi
+if [ ! -x "$SUH/.local/bin/opencode-desktop-titlebar-patch" ]; then
+  clone_repo "https://github.com/EmanuProds/opencode-desktop-titlebar.git" "$CLONES/titlebar" 2>/dev/null || true
+  if [ -f "$CLONES/titlebar/opencode-desktop-titlebar-patch" ]; then
+    install -m 755 -o "$SUDO_USER" -g "$(id -gn "$SUDO_USER")" "$CLONES/titlebar/opencode-desktop-titlebar-patch" "$SUH/.local/bin/opencode-desktop-titlebar-patch"
+  fi
+fi
+
 # Kernel CachyOS como padrao (sem tuning/snapper).
 step "Kernel CachyOS (default)"
 if ! rpm -q kernel-cachyos-lto >/dev/null 2>&1; then
