@@ -1,0 +1,116 @@
+## --- CachyOS kernel and optimizations (bieszczaders COPR) ---
+## cachyos-settings is deliberately LEFT OUT of here: it provides/obsoletes
+## zram-generator-defaults and dnf5 aborts 'dnf install' when both land in the
+## same transaction ("conflicting requests"). The swap is done by the script
+## itself, in phase 3 (the "cachy kernel glue" block).
+kernel-cachyos-lto                  # BORE 1000 Hz kernel + ThinLTO + NTSync + sched-ext (x86-64-v3 ✓ on the 5500U)
+kernel-cachyos-lto-devel-matched    # kernel headers, to build DKMS modules
+scx-scheds                         # sched-ext schedulers
+scx-tools                          # scxctl/scx_loader (scheduler control)
+scx-manager                        # scheduler GUI
+ananicy-cpp                        # automatic priority daemon
+cachyos-ananicy-rules              # CachyOS nice rules
+libdnf5-plugin-actions             # keeps the newest cachy kernel as the default boot entry
+
+## --- Terra tools (fyralabs repo, updated via dnf) ---
+ghostty                            # terminal
+code                               # VS Code (Microsoft repo)
+topgrade                           # unified updater (dnf, flatpak, mise…)
+resources                          # system monitor (GNOME)
+kooha                              # screen capture
+
+## --- Browsers ---
+zen-browser                        # COPR sneexy
+firefoxpwa                         # PWAsForFirefox: runtime for PWA webapps (Firefox/Zen)
+
+## --- Gaming ---
+steam                              # RPM Fusion nonfree
+steam-devices                      # controller targets (gamepad, remotes)
+gamemode                           # gaming optimization daemon
+gamescope                          # gaming compositor (Focal/FXAA, VRR)
+mangohud                           # FPS overlay in Vulkan/OpenGL
+
+## --- Wine and Windows compatibility ---
+wine-core                          # enables double-click on .exe/.msi in Nautilus
+wine-desktop                       # .desktop files and Wine menu integration
+wine-arial-winefonts               # on Fedora, Wine fonts are individual packages
+wine-courier-winefonts
+wine-fixedsys-winefonts
+wine-marlett-winefonts
+wine-ms-sans-serif-winefonts
+wine-small-winefonts
+wine-symbol-winefonts
+wine-pulseaudio                    # audio via PipeWire/PulseAudio
+wine-mono                          # .NET runtime for Windows programs
+winetricks                        # Wine dependency installer (default winemenubuilder)
+
+## --- Containers and virtualization ---
+podman
+podman-compose
+docker-ce                          # official Docker repo
+docker-ce-cli
+containerd.io
+docker-buildx-plugin
+docker-compose-plugin
+distrobox                         # containers as if they were part of the host system
+
+## --- Disk, Btrfs and storage ---
+btrfs-progs
+btrfs-assistant
+snapper                            # Btrfs snapshots
+btrbk                              # Btrfs backup/snapshot (verify on the machine)
+smartmontools                      # disk health (S.M.A.R.T.)
+
+## --- Printing and PDF ---
+cups                                # printing system
+cups-pdf                           # virtual printer that generates PDF
+gutenprint                         # printer drivers (Gutenberg)
+gutenprint-cups
+foomatic                           # printer database engine
+
+## --- Network and sharing ---
+samba                              # file sharing (Windows)
+samba-client
+
+## --- Graphics, image and video ---
+
+## --- GNOME integration ---
+decibels                           # audio equalizer
+nautilus-python                    # Nautilus Python extension
+grilo-plugins                      # GNOME media plugins (photos, videos)
+gnome-epub-thumbnailer             # .epub thumbnails
+ffmpegthumbnailer                  # video thumbnails
+
+## --- System tools ---
+fastfetch                          # system information in the terminal
+ddcutil                            # monitor brightness control (aliases m10..m100)
+earlyoom                           # prevents the OOM killer from freezing the desktop
+fuse                               # AppImage execution
+tesseract                          # OCR
+tesseract-langpack-por             # Portuguese OCR data
+inotify-tools                      # file watcher
+icoutils                           # icons inside executables
+
+## --- Files and compression ---
+file-roller                        # file manager
+7zip
+7zip
+7zip-standalone
+unrar                              # RPM Fusion nonfree
+cabextract                         # extracts .cab (driver packages)
+zip
+
+## --- Development and mobile ---
+android-tools                      # adb/fastboot
+jq                                 # JSON query on the command line
+wget2-wget
+git                                # needed to clone the dotfiles/scripts repos
+dnf-plugins-core
+golang                             # Go toolchain (global)
+uv                                 # Python package/tool manager (global)
+
+## --- Interface and themes ---
+morewaita-icon-theme               # COPR rivenirvana (extra icons for Adwaita)
+starship                           # COPR chronoscrat (shell prompt)
+resources                          # COPR atim/resources (beta) — resource monitor
+adw-gtk3-theme                     # GTK3 port of libadwaita (legacy apps + flatpak)

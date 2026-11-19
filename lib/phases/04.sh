@@ -1,6 +1,10 @@
 # Phase 4: dnf packages + opencode desktop + omniroute + sunshine + ghostty + resources + runtime (rpm/appimage/sh).
 
-mapfile -t PKGS < <(read_list "$LISTS/packages.txt")
+if [ "${MICHELE:-0}" = "1" ] && [ -s "$LISTS/packages.michele.txt" ]; then
+  mapfile -t PKGS < <(read_list "$LISTS/packages.michele.txt")
+else
+  mapfile -t PKGS < <(read_list "$LISTS/packages.txt")
+fi
 [ "${#PKGS[@]}" -gt 0 ] || die "packages.txt empty"
 
 PKGS_MISSING=()
@@ -142,7 +146,9 @@ while IFS='|' read -r kind name url extra; do
       else warn "$name: installer failed"; fi
       ;;
   esac
-done < <(grep -vE '^[[:space:]]*(#|$)' "$LISTS/phases.txt" | grep -v '|zip|')
+_PHASES_LIST="$LISTS/phases.txt"
+[ "${MICHELE:-0}" = "1" ] && [ -s "$LISTS/phases.michele.txt" ] && _PHASES_LIST="$LISTS/phases.michele.txt"
+done < <(grep -vE '^[[:space:]]*(#|$)' "$_PHASES_LIST" | grep -v '|zip|')
 
 # FirefoxPWA: runtime for PWA webapps (Firefox/Zen)
 if rpm_installed firefoxpwa; then

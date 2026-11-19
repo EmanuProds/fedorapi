@@ -3,7 +3,11 @@
 _f0=$FAIL_COUNT
 command -v flatpak >/dev/null 2>&1 || dnf install -y flatpak
 try_warn flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-mapfile -t FPKS < <(read_list "$LISTS/flatpak.txt")
+if [ "${MICHELE:-0}" = "1" ] && [ -s "$LISTS/flatpak.michele.txt" ]; then
+  mapfile -t FPKS < <(read_list "$LISTS/flatpak.michele.txt")
+else
+  mapfile -t FPKS < <(read_list "$LISTS/flatpak.txt")
+fi
 for app in "${FPKS[@]:-}"; do
   [ -z "$app" ] && continue
   appid="$(flatpak_appid "$app")"

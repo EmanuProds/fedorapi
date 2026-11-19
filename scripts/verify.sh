@@ -23,6 +23,7 @@ done
 
 # --- 2. install.sh script
 bash -n "$R/install.sh" && ok "install.sh syntax" || bad "install.sh syntax"
+[ -f "$R/michele.sh" ] && bash -n "$R/michele.sh" && ok "michele.sh syntax" || bad "michele.sh missing/syntax"
 grep -q 'set -euo pipefail' "$R/install.sh" && ok "set -euo pipefail" || bad "missing set -euo pipefail"
 ! grep -qE '\bdialog\b' "$R/install.sh" && ok "no dialog" || bad "dialog present"
 # colors/plymouth/URLs may live in lib/ (modular structure)

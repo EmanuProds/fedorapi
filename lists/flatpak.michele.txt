@@ -1,0 +1,43 @@
+## --- Browsers ---
+com.google.Chrome                  # Google browser
+
+## --- Development, data and APIs ---
+io.github.anil_e.Codd              # lightweight PostgreSQL client
+studio.planetpeanut.Bobby          # SQLite database viewer
+me.iepure.devtoolbox               # development tools
+es.danirod.Cartero                 # HTTP requests and API testing
+io.github.shonebinu.Brief          # command-line cheatsheet lookup
+com.ranfdev.DistroShelf            # GUI for Distrobox containers
+
+## --- Remote access ---
+
+## --- Notes, writing and documents ---
+io.anytype.anytype                 # note-taking and knowledge base
+org.gnome.gitlab.somas.Apostrophe  # Markdown editor
+page.codeberg.libre_menu_editor.LibreMenuEditor   # edits the GNOME menu
+io.github.diegoivan.pdf_metadata_editor  # PDF metadata editing
+
+## --- Image, video and disks ---
+
+## --- Gaming and compatibility ---
+
+## --- Flatpak, AppImage and extension management ---
+io.github.flattool.Warehouse       # flatpak hub
+it.mijorus.gearlever               # AppImage manager
+com.github.tchx84.Flatseal         # flatpak permissions
+com.mattjakeman.ExtensionManager   # GNOME extension installation
+io.github.flattool.Ignition        # manages startup programs and scripts
+io.github.realmazharhussain.GdmSettings  # customizes the login screen
+
+## --- Downloads ---
+io.github.giantpinkrobots.varia    # downloads files, videos and torrents
+org.nickvision.tubeconverter       # downloads video and audio from the web
+
+## --- Themes and runtimes (dependency of other apps) ---
+org.gtk.Gtk3theme.adw-gtk3         # libadwaita theme ported to GTK3
+org.gtk.Gtk3theme.adw-gtk3-dark    # dark variant of the GTK3 theme
+# The branch must be explicit: without /x86_64/24.08 the flatpak aborts the whole
+# batch ("Multiple refs match ... in non-interactive mode") and no app got
+# installed. 24.08 is the last published ffmpeg-full branch; the 25.08+
+# platforms already ship the codecs in the runtime itself.
+org.freedesktop.Platform.ffmpeg-full/x86_64/24.08  # protected codecs for video editing

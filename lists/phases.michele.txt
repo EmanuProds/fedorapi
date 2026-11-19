@@ -1,0 +1,24 @@
+# phases.txt — non-dnf installs handled by the special phases of
+# install.sh. Format of each line: type|name|URL|extra
+#   rpm      | name | GitHub releases API URL | .rpm file regex
+#   appimage | name | download URL            | filename in ~/Applications
+#   zip      | name | download URL            | extraction destination
+#   sh       | name | install script URL      | -
+#
+# These phases run at the end of the script (phase 13/13).
+
+# Sunshine: upstream official .rpm for fc44 (does not self-update via dnf;
+# topgrade can fetch the new rpm later)
+rpm|sunshine|https://api.github.com/repos/LizardByte/Sunshine/releases/latest|Sunshine-.*\.fc44\.x86_64\.rpm$
+
+# PWAsForFirefox: official .rpm from the release (the browser extension is
+# installed later, manually, through AMO)
+rpm|firefoxpwa|https://api.github.com/repos/filips123/PWAsForFirefox/releases/latest|firefoxpwa-.*\.x86_64\.rpm$
+
+# → ~/Applications + menu entry
+
+# JetBrains Mono Nerd (Terra's nerd-fonts package does not include JetBrains Mono)
+zip|jetbrains-mono-nerd|https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip|fonts
+
+# LinuxToys: the official installer has explicit Fedora support
+sh|linuxtoys|https://linux.toys/install.sh|-
