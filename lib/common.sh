@@ -48,7 +48,7 @@ flatpak_appid() {
 }
 service_enabled() { systemctl is-enabled "$1" >/dev/null 2>&1; }
 command_exists()  { command -v "$1" >/dev/null 2>&1; }
-npm_global_installed() { "$SUH/.bun/bin/bun" pm -g ls --depth=0 2>/dev/null | grep -q " $1@"; }
+npm_global_installed() { "$SUH/.bun/bin/bun" pm -g ls --depth=0 2>/dev/null | grep -q "$1@"; }
 omniroute_installed() { [ -x "$SUH/.bun/bin/omniroute" ] || command -v omniroute >/dev/null 2>&1; }
 gopls_installed() { [ -x "$SUH/.go/bin/gopls" ] || command -v gopls >/dev/null 2>&1; }
 

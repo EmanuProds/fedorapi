@@ -53,9 +53,9 @@ fi
 
 echo "Installing $RPM_FILE ..."
 if [ "$(id -u)" -eq 0 ]; then
-    dnf install -y "$RPM_FILE"
+    dnf install -y --allowerasing --nogpgcheck "$RPM_FILE"
 else
-    sudo dnf install -y "$RPM_FILE"
+    sudo dnf install -y --allowerasing --nogpgcheck "$RPM_FILE"
 fi
 
 echo "OpenCode Desktop updated to $LATEST_VER."

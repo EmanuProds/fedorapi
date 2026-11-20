@@ -38,9 +38,9 @@ fi
 if [ -x "$SUH/.bun/bin/bun" ] && [ -s "$LISTS/npm.txt" ]; then
   mapfile -t BUNGS < <(read_list "$LISTS/npm.txt")
   BUNGS_MISSING=()
-  for p in "${BUNGS[@]:-}"; do [ -z "$p" ] && continue; "$SUH/.bun/bin/bun" pm -g ls --depth=0 2>/dev/null | grep -q " $p@" || BUNGS_MISSING+=("$p"); done
+  for p in "${BUNGS[@]:-}"; do [ -z "$p" ] && continue; "$SUH/.bun/bin/bun" pm -g ls --depth=0 2>/dev/null | grep -q "$p@" || BUNGS_MISSING+=("$p"); done
   if [ "${#BUNGS_MISSING[@]}" -gt 0 ]; then
-    try_warn run_spin "installing bun globals" as_user "$SUH/.bun/bin/bun" add -g --silent "${BUNGS_MISSING[@]}"
+    try_warn run_spin "installing bun globals" as_user "$SUH/.bun/bin/bun" add -g --silent --allow-scripts=@opencode/cli "${BUNGS_MISSING[@]}"
   else
     ok "bun globals already installed — skipping"
   fi

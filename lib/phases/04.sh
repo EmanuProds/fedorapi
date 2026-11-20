@@ -63,7 +63,7 @@ else
   if rpm_installed opencode && [ -x /opt/OpenCode/ai.opencode ]; then
     ok "opencode desktop already installed — skipping"
   else
-    try_warn run_spin "installing opencode desktop" dnf install -y "$OPENCODE_DESKTOP_URL"
+    try_warn run_spin "installing opencode desktop" dnf install -y --allowerasing --nogpgcheck "$OPENCODE_DESKTOP_URL"
     if rpm_installed opencode && [ -x /opt/OpenCode/ai.opencode ]; then ok "opencode desktop installed"; else warn "opencode desktop not installed"; fi
   fi
 fi
