@@ -52,6 +52,36 @@ npm_global_installed() { "$SUH/.bun/bin/bun" pm -g ls --depth=0 2>/dev/null | gr
 omniroute_installed() { [ -x "$SUH/.bun/bin/omniroute" ] || command -v omniroute >/dev/null 2>&1; }
 gopls_installed() { [ -x "$SUH/.go/bin/gopls" ] || command -v gopls >/dev/null 2>&1; }
 
+# bun skips the @opencode/cli postinstall, leaving a 229-byte "not run" stub at
+# bin/opencode.exe. Repair it in place so `opencode` works without a reinstall.
+opencode_cli_heal() {
+  local dir="$SUH/.bun/install/global/node_modules/@opencode/cli"
+  local bin="$dir/bin/opencode.exe" post="$dir/postinstall.mjs"
+  local native="$SUH/.bun/install/global/node_modules/@opencode/cli-linux-x64"
+
+  if [ ! -x "$SUH/.bun/bin/bun" ] || [ ! -f "$post" ]; then
+    warn "opencode CLI: bun or postinstall.mjs not found — repair skipped"
+    return 0
+  fi
+  if [ -f "$bin" ] && ! grep -q 'postinstall script was not run' "$bin" 2>/dev/null; then
+    return 0
+  fi
+
+  ok "opencode CLI: install stub found — repairing"
+  if [ ! -x "$native/bin/opencode" ]; then
+    try_warn run_spin "installing opencode native binary" \
+      as_user "$SUH/.bun/bin/bun" add -g --silent @opencode/cli-linux-x64
+  fi
+  try_warn run_spin "running opencode postinstall" as_user "$SUH/.bun/bin/bun" "$post"
+
+  if as_user "$SUH/.bun/bin/opencode" --version >/dev/null 2>&1; then
+    ok "opencode CLI working ($(as_user "$SUH/.bun/bin/opencode" --version 2>/dev/null))"
+  else
+    warn "opencode CLI still broken — rerun phase 03 or check $LOG"
+    mark_fail
+  fi
+}
+
 sbctl_keys_enrolled() {
   local tmp_root tmp k exported a b
   tmp_root=$(mktemp -d /var/tmp/sbctl-check-XXXXXX) || return 2

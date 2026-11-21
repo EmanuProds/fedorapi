@@ -79,6 +79,7 @@ kdef=$(ls /boot 2>/dev/null | grep 'vmlinuz.*cachy' | sort -V | tail -1 || true)
 if [ -n "$kdef" ]; then try_warn grubby --set-default="/boot/$kdef" || true; ok "default kernel: $kdef"; else warn "no cachy kernel in /boot"; fi
 
 step "Cleanup"
+opencode_cli_heal
 rm -rf "$CLONES" || true
 try_warn flatpak uninstall -y --unused --system || true
 ok "Done :D — reboot recommended!"

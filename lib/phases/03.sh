@@ -44,17 +44,8 @@ if [ -x "$SUH/.bun/bin/bun" ] && [ -s "$LISTS/npm.txt" ]; then
   else
     ok "bun globals already installed — skipping"
   fi
-  # OpenCode CLI ships a native binary via an optional dependency; bun does not
-  # run its postinstall by default. Install the native binary package first, then
-  # run the postinstall manually to link the binary into bin/opencode.
-  try_warn run_spin "installing opencode native binary" as_user "$SUH/.bun/bin/bun" add -g --silent @opencode/cli-linux-x64 2>/dev/null || true
-  POSTINSTALL="$SUH/.bun/install/global/node_modules/@opencode/cli/postinstall.mjs"
-  if [ -f "$POSTINSTALL" ]; then
-    if command -v node >/dev/null 2>&1; then
-      try_warn run_spin "running opencode postinstall" as_user node "$POSTINSTALL"
-    else
-      try_warn run_spin "running opencode postinstall" as_user "$SUH/.bun/bin/bun" "$POSTINSTALL"
-    fi
-  fi
+  # bun does not run the @opencode/cli postinstall by default: link the native
+  # binary so `opencode` is the real program, not the "not run" stub.
+  opencode_cli_heal
 fi
 phase_end "$_f0" "toolchains ready"
