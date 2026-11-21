@@ -37,6 +37,7 @@ for entry in "${PHASES[@]}"; do
 done
 
 step "Cleanup"
+opencode_cli_heal
 rm -rf "$CLONES"
 try_warn flatpak uninstall -y --unused --system || true
 ok "Done :D — I strongly recommend rebooting your Fedora to apply the changes!"
